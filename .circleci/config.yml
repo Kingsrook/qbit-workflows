@@ -53,4 +53,6 @@ workflows:
           context: qqq-maven-registry-credentials
           filters:
             branches:
-              only: main|feature/initial-dev
+              only:
+                - main
+                - feature/initial-dev
