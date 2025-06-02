@@ -66,10 +66,10 @@ public class WorkflowStep extends QRecordEntity
          table
             .withUniqueKey(new UniqueKey("workflowRevisionId", "stepNo"))
             .withIcon(new QIcon().withName("polyline"))
-            .withRecordLabelFormat("%s %s")
-            .withRecordLabelFields("workflowRevisionId", "stepNo")
+            .withRecordLabelFormat("%s: %s")
+            .withRecordLabelFields("workflowStepTypeName", "summary")
             .withSection(SectionFactory.defaultT1("id", "workflowRevisionId", "stepNo"))
-            .withSection(SectionFactory.defaultT2("workflowStepTypeName", "description", "inputValuesJson"));
+            .withSection(SectionFactory.defaultT2("workflowStepTypeName", "summary", "description", "inputValuesJson"));
 
          return (table);
       }
@@ -82,13 +82,16 @@ public class WorkflowStep extends QRecordEntity
    @QField(isRequired = true, possibleValueSourceName = WorkflowRevision.TABLE_NAME)
    private Integer workflowRevisionId;
 
-   @QField(maxLength = 100, valueTooLongBehavior = ValueTooLongBehavior.ERROR, isRequired = true, possibleValueSourceName = WorkflowStepTypePossibleValueSource.NAME)
+   @QField(maxLength = 100, valueTooLongBehavior = ValueTooLongBehavior.ERROR, isRequired = true, possibleValueSourceName = WorkflowStepTypePossibleValueSource.NAME, label = "Step Type")
    private String workflowStepTypeName;
 
    @QField(isRequired = true)
    private Integer stepNo;
 
-   @QField(maxLength = 200, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
+   @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
+   private String summary;
+
+   @QField(maxLength = 500, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
    private String description;
 
    @QField()
@@ -295,6 +298,37 @@ public class WorkflowStep extends QRecordEntity
    public WorkflowStep withInputValuesJson(String inputValuesJson)
    {
       this.inputValuesJson = inputValuesJson;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for summary
+    *******************************************************************************/
+   public String getSummary()
+   {
+      return (this.summary);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for summary
+    *******************************************************************************/
+   public void setSummary(String summary)
+   {
+      this.summary = summary;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for summary
+    *******************************************************************************/
+   public WorkflowStep withSummary(String summary)
+   {
+      this.summary = summary;
       return (this);
    }
 

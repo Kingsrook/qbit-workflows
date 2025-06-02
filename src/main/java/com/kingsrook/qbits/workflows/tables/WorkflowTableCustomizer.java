@@ -19,24 +19,37 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.kingsrook.qbits.workflows.execution;
+package com.kingsrook.qbits.workflows.tables;
 
 
-import java.io.Serializable;
-import java.util.Map;
-import com.kingsrook.qbits.workflows.model.WorkflowStep;
+import java.util.List;
+import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizerInterface;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.model.actions.tables.insert.InsertInput;
+import com.kingsrook.qqq.backend.core.model.data.QRecord;
+import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 
 
 /*******************************************************************************
- ** interface for the code that executes a single step in a workflow.
+ **
  *******************************************************************************/
-public interface WorkflowStepExecutorInterface
+public class WorkflowTableCustomizer implements TableCustomizerInterface
 {
 
    /***************************************************************************
     **
     ***************************************************************************/
-   Serializable execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException;
+   @Override
+   public List<QRecord> preInsert(InsertInput insertInput, List<QRecord> records, boolean isPreview) throws QException
+   {
+      //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // when inserting, there shouldn't be a revision id (but note, in the case of a duplicate/copy, there might be one! //
+      //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      for(QRecord record : CollectionUtils.nonNullList(records))
+      {
+         record.setValue("currentWorkflowRevisionId", null);
+      }
+      return records;
+   }
 
 }

@@ -40,7 +40,8 @@ import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 
 
 /*******************************************************************************
- **
+ ** PVS for workflow step types - custom PVS implementation, that uses Workflow
+ ** Registry as backend.
  *******************************************************************************/
 public class WorkflowStepTypePossibleValueSource implements QCustomPossibleValueProvider<String>, MetaDataProducerInterface<QPossibleValueSource>
 {

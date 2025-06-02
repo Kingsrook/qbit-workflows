@@ -19,69 +19,62 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.kingsrook.qbits.workflows.definition;
+package com.kingsrook.qbits.workflows.model;
 
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import com.google.gson.reflect.TypeToken;
-import com.kingsrook.qbits.workflows.execution.WorkflowStepExecutorInterface;
-import com.kingsrook.qqq.backend.core.actions.customizers.QCodeLoader;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
-import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
-import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterOrderBy;
+import com.kingsrook.qqq.backend.core.model.data.QField;
+import com.kingsrook.qqq.backend.core.model.data.QRecord;
+import com.kingsrook.qqq.backend.core.model.data.QRecordEntity;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
-import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
-import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
-import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
-import com.kingsrook.qqq.backend.core.utils.StringUtils;
-import org.json.JSONObject;
+import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.ValueTooLongBehavior;
+import com.kingsrook.qqq.backend.core.model.metadata.layout.QIcon;
+import com.kingsrook.qqq.backend.core.model.metadata.producers.MetaDataCustomizerInterface;
+import com.kingsrook.qqq.backend.core.model.metadata.producers.annotations.QMetaDataProducingEntity;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.SectionFactory;
 
 
 /*******************************************************************************
- ** the definition for a kind of step that can be used within a workflow
+ ** QRecord Entity for WorkflowRunLogStep table
  *******************************************************************************/
-public class WorkflowStepType implements Serializable
+@QMetaDataProducingEntity(
+   produceTableMetaData = true,
+   tableMetaDataCustomizer = WorkflowRunLogStep.TableMetaDataCustomizer.class
+)
+public class WorkflowRunLogStep extends QRecordEntity implements Serializable
 {
-   private String         name;
-   private String         label;
-   private String         iconUrl;
-   private String         description;
-   private QCodeReference executor;
-
-   private OutboundLinkMode         outboundLinkMode;
-   private List<OutboundLinkOption> outboundLinkOptions;
-
-   private ArrayList<QFieldMetaData> inputFields;
-   private ArrayList<String>         inputWidgetNames;
+   public static final String TABLE_NAME = "workflowRunLogStep";
 
 
 
    /***************************************************************************
     **
     ***************************************************************************/
-   public String getDynamicStepSummary(Integer workflowId, JSONObject values) throws QException
+   public static class TableMetaDataCustomizer implements MetaDataCustomizerInterface<QTableMetaData>
    {
-      return (null);
-   }
 
-
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   public void enrich(QInstance qInstance)
-   {
-      if(!StringUtils.hasContent(label))
+      /***************************************************************************
+       **
+       ***************************************************************************/
+      @Override
+      public QTableMetaData customizeMetaData(QInstance qInstance, QTableMetaData table) throws QException
       {
-         label = QInstanceEnricher.nameToLabel(name);
-      }
+         table
+            .withIcon(new QIcon().withName("reorder"))
+            .withRecordLabelFormat("Step - %s (%s)")
+            .withRecordLabelFields("seqNo", "workflowRunLogId")
+            .withSection(SectionFactory.defaultT1("id", "workflowRunLogId", "seqNo"))
+            .withSection(SectionFactory.defaultT2("workflowStepId", "inputDataJson", "outputDataJson"))
+            .withSection(SectionFactory.defaultT3("startTimestamp", "endTimestamp"));
 
-      QInstanceEnricher enricher = new QInstanceEnricher(qInstance);
-      for(QFieldMetaData field : CollectionUtils.nonNullList(inputFields))
-      {
-         enricher.enrichField(field);
+         return (table);
       }
    }
 
@@ -90,297 +83,310 @@ public class WorkflowStepType implements Serializable
    /***************************************************************************
     **
     ***************************************************************************/
-   public void validate(QInstanceValidator qInstanceValidator, QInstance qInstance)
+   public static class RevisionChildListWidgetCustomizer implements MetaDataCustomizerInterface<QWidgetMetaData>
    {
-      qInstanceValidator.assertCondition(StringUtils.hasContent(name), "WorkflowStepType name is required.");
-      qInstanceValidator.assertCondition(executor != null, "WorkflowStepType [" + name + "]: executor is required.");
-      qInstanceValidator.assertCondition(outboundLinkMode != null, "WorkflowStepType [" + name + "]: outboundLinkMode is required.");
 
-      qInstanceValidator.assertNoException(() -> QCodeLoader.getAdHoc(WorkflowStepExecutorInterface.class, this.executor),
-         "WorkflowStepType [" + name + "]: executor could not be loaded as an instance of WorkflowStepExecutorInterface");
-
-      for(QFieldMetaData field : CollectionUtils.nonNullList(inputFields))
+      /***************************************************************************
+       **
+       ***************************************************************************/
+      @Override
+      public QWidgetMetaData customizeMetaData(QInstance qInstance, QWidgetMetaData widget) throws QException
       {
-         qInstanceValidator.validateFieldSupplementalMetaData(field, qInstance);
+         widget.withDefaultValue("orderBy", new ArrayList<>(List.of(new QFilterOrderBy("seqNo", false))));
+         return widget;
       }
    }
 
 
 
+   @QField(isEditable = false, isPrimaryKey = true)
+   private Long id;
+
+   @QField(possibleValueSourceName = WorkflowRunLog.TABLE_NAME)
+   private Long workflowRunLogId;
+
+   @QField(possibleValueSourceName = WorkflowStep.TABLE_NAME)
+   private Integer workflowStepId;
+
+   @QField()
+   private Integer seqNo;
+
+   @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS, label = "Input Data")
+   private String inputDataJson;
+
+   @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS, label = "Output Data")
+   private String outputDataJson;
+
+   @QField(isEditable = false)
+   private Instant startTimestamp;
+
+   @QField(isEditable = false)
+   private Instant endTimestamp;
+
+
+
    /*******************************************************************************
-    ** Getter for name
+    ** Default constructor
     *******************************************************************************/
-   public String getName()
+   public WorkflowRunLogStep()
    {
-      return (this.name);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for name
+    ** Constructor that takes a QRecord
     *******************************************************************************/
-   public void setName(String name)
+   public WorkflowRunLogStep(QRecord record)
    {
-      this.name = name;
+      populateFromQRecord(record);
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for name
+    ** Getter for id
     *******************************************************************************/
-   public WorkflowStepType withName(String name)
+   public Long getId()
    {
-      this.name = name;
+      return (this.id);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for id
+    *******************************************************************************/
+   public void setId(Long id)
+   {
+      this.id = id;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for id
+    *******************************************************************************/
+   public WorkflowRunLogStep withId(Long id)
+   {
+      this.id = id;
       return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Getter for executor
+    ** Getter for workflowRunLogId
     *******************************************************************************/
-   public QCodeReference getExecutor()
+   public Long getWorkflowRunLogId()
    {
-      return (this.executor);
+      return (this.workflowRunLogId);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for executor
+    ** Setter for workflowRunLogId
     *******************************************************************************/
-   public void setExecutor(QCodeReference executor)
+   public void setWorkflowRunLogId(Long workflowRunLogId)
    {
-      this.executor = executor;
+      this.workflowRunLogId = workflowRunLogId;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for executor
+    ** Fluent setter for workflowRunLogId
     *******************************************************************************/
-   public WorkflowStepType withExecutor(QCodeReference executor)
+   public WorkflowRunLogStep withWorkflowRunLogId(Long workflowRunLogId)
    {
-      this.executor = executor;
+      this.workflowRunLogId = workflowRunLogId;
       return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Getter for label
+    ** Getter for workflowStepId
     *******************************************************************************/
-   public String getLabel()
+   public Integer getWorkflowStepId()
    {
-      return (this.label);
+      return (this.workflowStepId);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for label
+    ** Setter for workflowStepId
     *******************************************************************************/
-   public void setLabel(String label)
+   public void setWorkflowStepId(Integer workflowStepId)
    {
-      this.label = label;
+      this.workflowStepId = workflowStepId;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for label
+    ** Fluent setter for workflowStepId
     *******************************************************************************/
-   public WorkflowStepType withLabel(String label)
+   public WorkflowRunLogStep withWorkflowStepId(Integer workflowStepId)
    {
-      this.label = label;
+      this.workflowStepId = workflowStepId;
       return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Getter for description
+    ** Getter for seqNo
     *******************************************************************************/
-   public String getDescription()
+   public Integer getSeqNo()
    {
-      return (this.description);
+      return (this.seqNo);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for description
+    ** Setter for seqNo
     *******************************************************************************/
-   public void setDescription(String description)
+   public void setSeqNo(Integer seqNo)
    {
-      this.description = description;
+      this.seqNo = seqNo;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for description
+    ** Fluent setter for seqNo
     *******************************************************************************/
-   public WorkflowStepType withDescription(String description)
+   public WorkflowRunLogStep withSeqNo(Integer seqNo)
    {
-      this.description = description;
+      this.seqNo = seqNo;
       return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Getter for inputFields
+    ** Getter for inputDataJson
     *******************************************************************************/
-   public List<QFieldMetaData> getInputFields()
+   public String getInputDataJson()
    {
-      return (this.inputFields);
+      return (this.inputDataJson);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for inputFields
+    ** Setter for inputDataJson
     *******************************************************************************/
-   public void setInputFields(List<QFieldMetaData> inputFields)
+   public void setInputDataJson(String inputDataJson)
    {
-      this.inputFields = CollectionUtils.useOrWrap(inputFields, new TypeToken<>() {});
+      this.inputDataJson = inputDataJson;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for inputFields
+    ** Fluent setter for inputDataJson
     *******************************************************************************/
-   public WorkflowStepType withInputFields(List<QFieldMetaData> inputFields)
+   public WorkflowRunLogStep withInputDataJson(String inputDataJson)
    {
-      setInputFields(inputFields);
+      this.inputDataJson = inputDataJson;
       return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Getter for outboundLinkMode
+    ** Getter for outputDataJson
     *******************************************************************************/
-   public OutboundLinkMode getOutboundLinkMode()
+   public String getOutputDataJson()
    {
-      return (this.outboundLinkMode);
+      return (this.outputDataJson);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for outboundLinkMode
+    ** Setter for outputDataJson
     *******************************************************************************/
-   public void setOutboundLinkMode(OutboundLinkMode outboundLinkMode)
+   public void setOutputDataJson(String outputDataJson)
    {
-      this.outboundLinkMode = outboundLinkMode;
+      this.outputDataJson = outputDataJson;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for outboundLinkMode
+    ** Fluent setter for outputDataJson
     *******************************************************************************/
-   public WorkflowStepType withOutboundLinkMode(OutboundLinkMode outboundLinkMode)
+   public WorkflowRunLogStep withOutputDataJson(String outputDataJson)
    {
-      this.outboundLinkMode = outboundLinkMode;
+      this.outputDataJson = outputDataJson;
       return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Getter for iconUrl
+    ** Getter for startTimestamp
     *******************************************************************************/
-   public String getIconUrl()
+   public Instant getStartTimestamp()
    {
-      return (this.iconUrl);
+      return (this.startTimestamp);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for iconUrl
+    ** Setter for startTimestamp
     *******************************************************************************/
-   public void setIconUrl(String iconUrl)
+   public void setStartTimestamp(Instant startTimestamp)
    {
-      this.iconUrl = iconUrl;
+      this.startTimestamp = startTimestamp;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for iconUrl
+    ** Fluent setter for startTimestamp
     *******************************************************************************/
-   public WorkflowStepType withIconUrl(String iconUrl)
+   public WorkflowRunLogStep withStartTimestamp(Instant startTimestamp)
    {
-      this.iconUrl = iconUrl;
+      this.startTimestamp = startTimestamp;
       return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Getter for inputWidgetNames
+    ** Getter for endTimestamp
     *******************************************************************************/
-   public ArrayList<String> getInputWidgetNames()
+   public Instant getEndTimestamp()
    {
-      return (this.inputWidgetNames);
+      return (this.endTimestamp);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for inputWidgetNames
+    ** Setter for endTimestamp
     *******************************************************************************/
-   public void setInputWidgetNames(List<String> inputWidgetNames)
+   public void setEndTimestamp(Instant endTimestamp)
    {
-      this.inputWidgetNames = CollectionUtils.useOrWrap(inputWidgetNames, new TypeToken<>() {});
+      this.endTimestamp = endTimestamp;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for inputWidgetNames
+    ** Fluent setter for endTimestamp
     *******************************************************************************/
-   public WorkflowStepType withInputWidgetNames(List<String> inputWidgetNames)
+   public WorkflowRunLogStep withEndTimestamp(Instant endTimestamp)
    {
-      setInputWidgetNames(inputWidgetNames);
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for outboundLinkOptions
-    *******************************************************************************/
-   public List<OutboundLinkOption> getOutboundLinkOptions()
-   {
-      return (this.outboundLinkOptions);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for outboundLinkOptions
-    *******************************************************************************/
-   public void setOutboundLinkOptions(List<OutboundLinkOption> outboundLinkOptions)
-   {
-      this.outboundLinkOptions = outboundLinkOptions;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for outboundLinkOptions
-    *******************************************************************************/
-   public WorkflowStepType withOutboundLinkOptions(List<OutboundLinkOption> outboundLinkOptions)
-   {
-      this.outboundLinkOptions = outboundLinkOptions;
+      this.endTimestamp = endTimestamp;
       return (this);
    }
 

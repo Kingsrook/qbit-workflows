@@ -23,6 +23,7 @@ package com.kingsrook.qbits.workflows.execution;
 
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -36,7 +37,10 @@ import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowLink;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
+import com.kingsrook.qbits.workflows.model.WorkflowRunLog;
+import com.kingsrook.qbits.workflows.model.WorkflowRunLogStep;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
+import com.kingsrook.qbits.workflows.tracing.WorkflowTracerInterface;
 import com.kingsrook.qqq.backend.core.actions.AbstractQActionBiConsumer;
 import com.kingsrook.qqq.backend.core.actions.customizers.QCodeLoader;
 import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
@@ -53,11 +57,14 @@ import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
 /*******************************************************************************
- **
+ ** class that executes a workflow.  evaluating its steps and navigating links.
  *******************************************************************************/
 public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, WorkflowOutput>
 {
    private static final QLogger LOG = QLogger.getLogger(WorkflowExecutor.class);
+
+   private WorkflowTracerInterface workflowTracer;
+   private WorkflowRunLog          inputWorkflowRunLog;
 
 
 
@@ -73,11 +80,24 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
       Map<String, Serializable> values = Objects.requireNonNullElseGet(workflowInput.getValues(), () -> new LinkedHashMap<>());
       values = CollectionUtils.useOrWrap(values, TypeToken.get(LinkedHashMap.class));
 
+      //////////////////////////////////
+      // initialize execution context //
+      //////////////////////////////////
+      WorkflowExecutionContext context = new WorkflowExecutionContext();
+      context.setValues(values);
+
       ///////////////////////////
       // initialize trace list //
       ///////////////////////////
-      List<WorkflowTrace> traceList = new ArrayList<>();
-      workflowOutput.setTraceList(traceList);
+      WorkflowRunLog workflowRunLog = Objects.requireNonNullElseGet(inputWorkflowRunLog, () -> new WorkflowRunLog());
+      workflowRunLog.setStartTimestamp(Instant.now());
+      workflowRunLog.setWorkflowId(workflowInput.getWorkflowId());
+      workflowOutput.setWorkflowRunLog(workflowRunLog);
+
+      List<WorkflowRunLogStep> logStepList = new ArrayList<>();
+      workflowRunLog.setSteps(logStepList);
+
+      WorkflowTypeExecutorInterface workflowTypeExecutor = null;
 
       try
       {
@@ -89,6 +109,10 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          Map<Integer, WorkflowStep>         stepMap          = loadSteps(workflowRevision);
          ListingHash<Integer, WorkflowLink> linkMap          = loadLinks(workflowRevision);
 
+         context.setWorkflow(workflow);
+         context.setWorkflowRevision(workflowRevision);
+         workflowRunLog.setWorkflowRevisionId(workflowRevision.getId());
+
          ////////////////////////////////////////////
          // load type-executor, and do its pre-run //
          ////////////////////////////////////////////
@@ -97,13 +121,16 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          {
             throw new QException("Workflow type not found by name: " + workflow.getWorkflowTypeName());
          }
-         WorkflowTypeExecutorInterface workflowTypeExecutor = QCodeLoader.getAdHoc(WorkflowTypeExecutorInterface.class, workflowType.getExecutor());
-         workflowTypeExecutor.preRun(values, workflow, workflowRevision);
+         workflowTypeExecutor = QCodeLoader.getAdHoc(WorkflowTypeExecutorInterface.class, workflowType.getExecutor());
+         workflowTypeExecutor.preRun(context, workflow, workflowRevision);
+
+         context.setTransaction(workflowTypeExecutor.openTransaction(workflow, workflowRevision));
 
          ///////////////
          // step loop //
          ///////////////
          Integer stepNo = workflowRevision.getStartStepNo();
+         int     seqNo  = 1;
          while(stepNo != null)
          {
             WorkflowStep step = stepMap.get(stepNo);
@@ -112,26 +139,95 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
                throw new QException("Step not found by stepNo: " + stepNo);
             }
 
-            WorkflowTrace workflowTrace = new WorkflowTrace();
-            workflowTrace.setStepNo(stepNo);
-            traceList.add(workflowTrace);
+            WorkflowRunLogStep workflowRunLogStep = new WorkflowRunLogStep();
+            workflowRunLogStep.setWorkflowStepId(step.getId());
+            workflowRunLogStep.setSeqNo(seqNo);
+            workflowRunLogStep.setStartTimestamp(Instant.now());
+            logStepList.add(workflowRunLogStep);
 
-            Serializable stepOutput = executeStep(step, workflowTypeExecutor, values);
-            workflowTrace.setStepOutput(stepOutput);
+            Serializable stepOutput = executeStep(step, workflowTypeExecutor, context);
+            workflowRunLogStep.setOutputDataJson(ValueUtils.getValueAsString(stepOutput)); // todo json??
 
             stepNo = getNextStepNo(stepOutput, stepNo, linkMap);
+
+            workflowRunLogStep.setEndTimestamp(Instant.now());
+            seqNo++;
+         }
+
+         if(context.getTransaction() != null)
+         {
+            context.getTransaction().commit();
          }
 
          //////////////////////////////////
          // post-run, then output values //
          //////////////////////////////////
-         workflowTypeExecutor.postRun(values);
-         workflowOutput.setValues(values);
+         workflowTypeExecutor.postRun(context);
+         workflowOutput.setValues(context.getValues());
+         workflowRunLog.setHadError(false);
       }
       catch(Exception e)
       {
          LOG.info("Exception running workflow", e, logPair("workflowId", workflowInput.getWorkflowId()));
+
+         if(workflowTypeExecutor != null)
+         {
+            workflowTypeExecutor.handleException(e, context);
+         }
+
+         if(context.getTransaction() != null)
+         {
+            context.getTransaction().rollback();
+         }
+
          workflowOutput.setException(e);
+         workflowRunLog.setHadError(true);
+      }
+      finally
+      {
+         storeWorkflowRunLog(workflowRunLog);
+         closeTransaction(context);
+      }
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   private void storeWorkflowRunLog(WorkflowRunLog workflowRunLog)
+   {
+      try
+      {
+         if(workflowTracer != null)
+         {
+            workflowRunLog.setEndTimestamp(Instant.now());
+            workflowTracer.handleWorkflowFinish(workflowRunLog);
+         }
+      }
+      catch(Exception e)
+      {
+         LOG.warn("Exception running workflow log tracer", e);
+      }
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   private static void closeTransaction(WorkflowExecutionContext context)
+   {
+      try
+      {
+         if(context.getTransaction() != null)
+         {
+            context.getTransaction().close();
+         }
+      }
+      catch(Exception e)
+      {
+         LOG.warn("Exception closing transaction", e);
       }
    }
 
@@ -145,7 +241,6 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
       List<WorkflowLink> links = linkMap.get(fromStepNo);
       if(CollectionUtils.nullSafeIsEmpty(links))
       {
-         // todo:trace "no outbound links found?"
          return (null);
       }
 
@@ -182,7 +277,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
    /***************************************************************************
     **
     ***************************************************************************/
-   private Serializable executeStep(WorkflowStep step, WorkflowTypeExecutorInterface workflowTypeExecutor, Map<String, Serializable> values) throws QException
+   private Serializable executeStep(WorkflowStep step, WorkflowTypeExecutorInterface workflowTypeExecutor, WorkflowExecutionContext context) throws QException
    {
       WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(step.getWorkflowStepTypeName());
       if(workflowStepType == null)
@@ -192,7 +287,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
 
       WorkflowStepExecutorInterface workflowStepExecutor = QCodeLoader.getAdHoc(WorkflowStepExecutorInterface.class, workflowStepType.getExecutor());
 
-      workflowTypeExecutor.preStep(step, values);
+      workflowTypeExecutor.preStep(step, context);
 
       JSONObject                jsonObject  = JsonUtils.toJSONObject(step.getInputValuesJson());
       Map<String, Object>       mapValues   = jsonObject.toMap();
@@ -206,8 +301,8 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          }
       }
 
-      Serializable stepOutput = workflowStepExecutor.execute(step, inputValues, values);
-      stepOutput = workflowTypeExecutor.postStep(step, values, stepOutput);
+      Serializable stepOutput = workflowStepExecutor.execute(step, inputValues, context);
+      stepOutput = workflowTypeExecutor.postStep(step, context, stepOutput);
 
       return stepOutput;
    }
@@ -273,6 +368,68 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          throw new QException("Workflow not found by id: " + workflowId);
       }
       return new Workflow(workflow);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for workflowTracer
+    *******************************************************************************/
+   public WorkflowTracerInterface getWorkflowTracer()
+   {
+      return (this.workflowTracer);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for workflowTracer
+    *******************************************************************************/
+   public void setWorkflowTracer(WorkflowTracerInterface workflowTracer)
+   {
+      this.workflowTracer = workflowTracer;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for workflowTracer
+    *******************************************************************************/
+   public WorkflowExecutor withWorkflowTracer(WorkflowTracerInterface workflowTracer)
+   {
+      this.workflowTracer = workflowTracer;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for inputWorkflowRunLog
+    *******************************************************************************/
+   public WorkflowRunLog getInputWorkflowRunLog()
+   {
+      return (this.inputWorkflowRunLog);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for inputWorkflowRunLog
+    *******************************************************************************/
+   public void setInputWorkflowRunLog(WorkflowRunLog inputWorkflowRunLog)
+   {
+      this.inputWorkflowRunLog = inputWorkflowRunLog;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for inputWorkflowRunLog
+    *******************************************************************************/
+   public WorkflowExecutor withInputWorkflowRunLog(WorkflowRunLog inputWorkflowRunLog)
+   {
+      this.inputWorkflowRunLog = inputWorkflowRunLog;
+      return (this);
    }
 
 }

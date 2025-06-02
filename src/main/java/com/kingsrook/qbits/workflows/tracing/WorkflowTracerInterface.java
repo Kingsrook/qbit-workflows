@@ -19,19 +19,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.kingsrook.qbits.workflows.definition;
+package com.kingsrook.qbits.workflows.tracing;
 
 
-/***************************************************************************
- ** How many links can come out of a step-type.
- ** ZERO means a terminal step - nothing out of it.
- ** ONE is a regular statement, that just flows to its next.
- ** TWO is for an if/else
- ** Unclear exactly how we'd do variable number of outbounds (e.g., a switch)
- ***************************************************************************/
-public enum OutboundLinkMode
+import java.io.Serializable;
+import com.kingsrook.qbits.workflows.model.WorkflowRunLog;
+
+
+/*******************************************************************************
+ ** interface for workflow tracers.
+ *******************************************************************************/
+public interface WorkflowTracerInterface
 {
-   ZERO,
-   ONE,
-   TWO,
+   Serializable handleWorkflowFinish(WorkflowRunLog workflowRunLog);
 }

@@ -40,11 +40,10 @@ import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QBackendStepMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QFunctionInputMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
-import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 
 
 /*******************************************************************************
- **
+ ** process that fetches a workflow revision and its steps & links
  *******************************************************************************/
 public class GetWorkflowRevisionProcess implements BackendStep, MetaDataProducerInterface<QProcessMetaData>
 {
@@ -85,21 +84,21 @@ public class GetWorkflowRevisionProcess implements BackendStep, MetaDataProducer
       QRecord workflowRecord         = null;
       QRecord workflowRevisionRecord = null;
 
+      //////////////////////////////////////////////
+      // if given a workflow id, look it up first //
+      //////////////////////////////////////////////
       if(workflowId != null)
       {
-         workflowRecord = GetAction.execute(Workflow.TABLE_NAME, workflowId);
-         if(workflowRecord == null)
-         {
-            throw new QException("Workflow not found: " + workflowId);
-         }
-         runBackendStepOutput.addValue("workflow", JsonUtils.toJson(new Workflow(workflowRecord)));
-
+         workflowRecord = lookupWorkflow(runBackendStepOutput, workflowId);
          if(workflowRevisionId == null)
          {
             workflowRevisionId = workflowRecord.getValueInteger("currentWorkflowRevisionId");
          }
       }
 
+      //////////////////////////////////////////////////////////////////////////////////////////////
+      // if we have a revision id (either from input, or from the worfkow's current), the load it //
+      //////////////////////////////////////////////////////////////////////////////////////////////
       if(workflowRevisionId != null)
       {
          workflowRevisionRecord = new GetAction().executeForRecord(new GetInput(WorkflowRevision.TABLE_NAME)
@@ -111,18 +110,32 @@ public class GetWorkflowRevisionProcess implements BackendStep, MetaDataProducer
          }
 
          WorkflowRevision workflowRevision = new WorkflowRevision(workflowRevisionRecord);
-         runBackendStepOutput.addValue("workflowRevision", JsonUtils.toJson(workflowRevision));
+         runBackendStepOutput.addValue("workflowRevision", workflowRevision);
       }
 
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      // if we didn't previously load the workflow, but we do have a revision, then load the workflow now //
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
       if(workflowRecord == null && workflowRevisionRecord != null)
       {
-         workflowRecord = GetAction.execute(Workflow.TABLE_NAME, workflowRevisionRecord.getValueInteger("workflowId"));
-         if(workflowRecord == null)
-         {
-            throw new QException("Workflow not found: " + workflowId);
-         }
-         runBackendStepOutput.addValue("workflow", JsonUtils.toJson(new Workflow(workflowRecord)));
+         lookupWorkflow(runBackendStepOutput, workflowRevisionRecord.getValueInteger("workflowId"));
       }
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   private static QRecord lookupWorkflow(RunBackendStepOutput runBackendStepOutput, Integer workflowId) throws QException
+   {
+      QRecord workflowRecord = GetAction.execute(Workflow.TABLE_NAME, workflowId);
+      if(workflowRecord == null)
+      {
+         throw new QException("Workflow not found: " + workflowId);
+      }
+      runBackendStepOutput.addValue("workflow", new Workflow(workflowRecord));
+      return workflowRecord;
    }
 
 }

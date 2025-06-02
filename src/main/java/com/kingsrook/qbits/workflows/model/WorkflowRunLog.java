@@ -26,7 +26,9 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import com.kingsrook.qbits.workflows.metadata.WorkflowRevisionViewerWidget;
+import com.kingsrook.qbits.workflows.metadata.WorkflowRunLogViewerWidget;
+import com.kingsrook.qbits.workflows.tables.WorkflowRunLogTableCustomizer;
+import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizers;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterOrderBy;
 import com.kingsrook.qqq.backend.core.model.data.QAssociation;
@@ -34,7 +36,10 @@ import com.kingsrook.qqq.backend.core.model.data.QField;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.data.QRecordEntity;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
+import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.FieldAdornment;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.ValueTooLongBehavior;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QIcon;
@@ -46,40 +51,30 @@ import com.kingsrook.qqq.backend.core.model.metadata.producers.annotations.QMeta
 import com.kingsrook.qqq.backend.core.model.metadata.tables.Association;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.SectionFactory;
-import com.kingsrook.qqq.backend.core.model.metadata.tables.UniqueKey;
+import com.kingsrook.qqq.backend.core.model.tables.QQQTable;
+import static com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType.ChipValues.iconAndColorValues;
 
 
 /*******************************************************************************
- ** QRecord Entity for WorkflowRevision table
+ ** QRecord Entity for WorkflowRunLog table
  *******************************************************************************/
 @QMetaDataProducingEntity(
    producePossibleValueSource = true,
    produceTableMetaData = true,
-   tableMetaDataCustomizer = WorkflowRevision.TableMetaDataCustomizer.class,
+   tableMetaDataCustomizer = WorkflowRunLog.TableMetaDataCustomizer.class,
    childTables = {
       @ChildTable(
-         childTableEntityClass = WorkflowStep.class,
-         joinFieldName = "workflowRevisionId",
+         childTableEntityClass = WorkflowRunLogStep.class,
+         joinFieldName = "workflowRunLogId",
          childJoin = @ChildJoin(enabled = true),
-         childRecordListWidget = @ChildRecordListWidget(label = "Steps", enabled = true, maxRows = 250)),
-      @ChildTable(
-         childTableEntityClass = WorkflowLink.class,
-         joinFieldName = "workflowRevisionId",
-         childJoin = @ChildJoin(enabled = true),
-         childRecordListWidget = @ChildRecordListWidget(label = "Links", enabled = true, maxRows = 250)),
-      @ChildTable(
-         childTableEntityClass = WorkflowRunLog.class,
-         joinFieldName = "workflowRevisionId",
-         childJoin = @ChildJoin(enabled = true),
-         childRecordListWidget = @ChildRecordListWidget(label = "Run Logs", enabled = true, maxRows = 50, widgetMetaDataCustomizer = WorkflowRevision.RunLogChildListWidgetCustomizer.class))
+         childRecordListWidget = @ChildRecordListWidget(label = "Steps", enabled = true, maxRows = 250, widgetMetaDataCustomizer = WorkflowRunLog.RevisionChildListWidgetCustomizer.class))
    }
 )
-public class WorkflowRevision extends QRecordEntity implements Serializable
+public class WorkflowRunLog extends QRecordEntity implements Serializable
 {
-   public static final String TABLE_NAME = "workflowRevision";
+   public static final String TABLE_NAME = "workflowRunLog";
 
-   public static final String ASSOCIATION_NAME_WORKFLOW_STEP = "workflowSteps";
-   public static final String ASSOCIATION_NAME_WORKFLOW_LINK = "workflowLink";
+   public static final String STEPS_ASSOCIATION_NAME = "workflowRunLogSteps";
 
 
 
@@ -89,31 +84,32 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
    public static class TableMetaDataCustomizer implements MetaDataCustomizerInterface<QTableMetaData>
    {
 
+
       /***************************************************************************
        **
        ***************************************************************************/
       @Override
       public QTableMetaData customizeMetaData(QInstance qInstance, QTableMetaData table) throws QException
       {
-         String stepChildJoinName    = QJoinMetaData.makeInferredJoinName(TABLE_NAME, WorkflowStep.TABLE_NAME);
-         String linkChildJoinName    = QJoinMetaData.makeInferredJoinName(TABLE_NAME, WorkflowLink.TABLE_NAME);
-         String runLogsChildJoinName = QJoinMetaData.makeInferredJoinName(TABLE_NAME, WorkflowRunLog.TABLE_NAME);
+         String childJoinName = QJoinMetaData.makeInferredJoinName(TABLE_NAME, WorkflowRunLogStep.TABLE_NAME);
 
          table
-            .withUniqueKey(new UniqueKey("workflowId", "versionNo"))
-            .withIcon(new QIcon().withName("schema"))
-            .withRecordLabelFormat("%s v%s")
-            .withRecordLabelFields("workflowId", "versionNo")
-            .withSection(SectionFactory.defaultT1("id", "workflowId", "versionNo"))
-            .withSection(SectionFactory.customT2("workflowViewerWidget", new QIcon("account_tree")).withLabel("Workflow Steps").withWidgetName(WorkflowRevisionViewerWidget.NAME))
-            .withSection(SectionFactory.defaultT2("apiName", "apiVersion").withName("api").withGridColumns(6))
-            .withSection(SectionFactory.defaultT2("commitMessage", "author", "startStepNo").withGridColumns(6))
-            .withSection(SectionFactory.customT2("runLogs", new QIcon("receipt_long")).withWidgetName(runLogsChildJoinName))
-            .withSection(SectionFactory.customT2("steps", new QIcon("polyline")).withWidgetName(stepChildJoinName))
-            .withSection(SectionFactory.customT2("links", new QIcon("link")).withWidgetName(linkChildJoinName))
-            .withSection(SectionFactory.defaultT3("createDate", "modifyDate"))
-            .withAssociation(new Association().withName(ASSOCIATION_NAME_WORKFLOW_STEP).withAssociatedTableName(WorkflowStep.TABLE_NAME).withJoinName(stepChildJoinName))
-            .withAssociation(new Association().withName(ASSOCIATION_NAME_WORKFLOW_LINK).withAssociatedTableName(WorkflowLink.TABLE_NAME).withJoinName(linkChildJoinName));
+            .withIcon(new QIcon().withName("receipt_long"))
+            .withRecordLabelFormat("%s (%s)")
+            .withRecordLabelFields("id", "workflowRevisionId")
+            .withSection(SectionFactory.defaultT1("id", "workflowId", "workflowRevisionId"))
+            .withSection(SectionFactory.customT2("workflowRunLogViewerWidget", new QIcon("account_tree")).withLabel("Workflow Steps").withWidgetName(WorkflowRunLogViewerWidget.NAME))
+            .withSection(SectionFactory.defaultT2("inputRecordQqqTableId", "inputRecordId", "inputDataJson", "hadError"))
+            .withSection(SectionFactory.customT2("steps", new QIcon("polyline")).withWidgetName(childJoinName))
+            .withSection(SectionFactory.defaultT3("startTimestamp", "endTimestamp")).
+            withAssociation(new Association().withName(STEPS_ASSOCIATION_NAME).withJoinName(childJoinName).withAssociatedTableName(WorkflowRunLogStep.TABLE_NAME));
+
+         table.getField("hadError").withFieldAdornment(new FieldAdornment(AdornmentType.CHIP)
+            .withValues(iconAndColorValues(false, "done", AdornmentType.ChipValues.COLOR_SUCCESS))
+            .withValues(iconAndColorValues(true, "error", AdornmentType.ChipValues.COLOR_ERROR)));
+
+         table.withCustomizer(TableCustomizers.POST_QUERY_RECORD, new QCodeReference(WorkflowRunLogTableCustomizer.class));
+         table.getField("inputRecordId").withFieldAdornment(new FieldAdornment(AdornmentType.LINK).withValue(AdornmentType.LinkValues.TO_RECORD_FROM_TABLE_DYNAMIC, true));
 
          return (table);
       }
@@ -124,7 +120,7 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
    /***************************************************************************
     **
     ***************************************************************************/
-   public static class RunLogChildListWidgetCustomizer implements MetaDataCustomizerInterface<QWidgetMetaData>
+   public static class RevisionChildListWidgetCustomizer implements MetaDataCustomizerInterface<QWidgetMetaData>
    {
 
       /***************************************************************************
@@ -133,8 +129,7 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
       @Override
       public QWidgetMetaData customizeMetaData(QInstance qInstance, QWidgetMetaData widget) throws QException
       {
-         widget.withDefaultValue("orderBy", new ArrayList<>(List.of(new QFilterOrderBy("id", false))));
-         widget.withDefaultValue("omitFieldNames", new ArrayList<>(List.of("workflowId")));
+         widget.withDefaultValue("orderBy", new ArrayList<>(List.of(new QFilterOrderBy("seqNo", true))));
          return widget;
       }
    }
@@ -142,47 +137,41 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
 
 
    @QField(isEditable = false, isPrimaryKey = true)
-   private Integer id;
+   private Long id;
 
    @QField(possibleValueSourceName = Workflow.TABLE_NAME)
    private Integer workflowId;
 
-   @QField()
-   private Integer versionNo;
-
-   @QField(maxLength = 100, valueTooLongBehavior = ValueTooLongBehavior.ERROR, possibleValueSourceName = "apiName")
-   private String apiName;
-
-   @QField(maxLength = 100, valueTooLongBehavior = ValueTooLongBehavior.ERROR, possibleValueSourceName = "apiVersion")
-   private String apiVersion;
+   @QField(possibleValueSourceName = WorkflowRevision.TABLE_NAME)
+   private Integer workflowRevisionId;
 
    @QField()
-   private Integer startStepNo;
+   private Boolean hadError;
 
-   @QField(maxLength = 500, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
-   private String commitMessage;
+   @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
+   private String inputDataJson;
 
-   @QField(maxLength = 100, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
-   private String author;
+   @QField(label = "Input Record Table", possibleValueSourceName = QQQTable.TABLE_NAME)
+   private Integer inputRecordQqqTableId;
+
+   @QField()
+   private Integer inputRecordId;
 
    @QField(isEditable = false)
-   private Instant createDate;
+   private Instant startTimestamp;
 
    @QField(isEditable = false)
-   private Instant modifyDate;
+   private Instant endTimestamp;
 
-   @QAssociation(name = ASSOCIATION_NAME_WORKFLOW_STEP)
-   private List<WorkflowStep> steps;
-
-   @QAssociation(name = ASSOCIATION_NAME_WORKFLOW_LINK)
-   private List<WorkflowLink> links;
+   @QAssociation(name = STEPS_ASSOCIATION_NAME)
+   private List<WorkflowRunLogStep> steps;
 
 
 
    /*******************************************************************************
     ** Default constructor
     *******************************************************************************/
-   public WorkflowRevision()
+   public WorkflowRunLog()
    {
    }
 
@@ -191,7 +180,7 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
    /*******************************************************************************
     ** Constructor that takes a QRecord
     *******************************************************************************/
-   public WorkflowRevision(QRecord record)
+   public WorkflowRunLog(QRecord record)
    {
       populateFromQRecord(record);
    }
@@ -201,7 +190,7 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
    /*******************************************************************************
     ** Getter for id
     *******************************************************************************/
-   public Integer getId()
+   public Long getId()
    {
       return (this.id);
    }
@@ -211,7 +200,7 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
    /*******************************************************************************
     ** Setter for id
     *******************************************************************************/
-   public void setId(Integer id)
+   public void setId(Long id)
    {
       this.id = id;
    }
@@ -221,164 +210,9 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
    /*******************************************************************************
     ** Fluent setter for id
     *******************************************************************************/
-   public WorkflowRevision withId(Integer id)
+   public WorkflowRunLog withId(Long id)
    {
       this.id = id;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for createDate
-    *******************************************************************************/
-   public Instant getCreateDate()
-   {
-      return (this.createDate);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for createDate
-    *******************************************************************************/
-   public void setCreateDate(Instant createDate)
-   {
-      this.createDate = createDate;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for createDate
-    *******************************************************************************/
-   public WorkflowRevision withCreateDate(Instant createDate)
-   {
-      this.createDate = createDate;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for modifyDate
-    *******************************************************************************/
-   public Instant getModifyDate()
-   {
-      return (this.modifyDate);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for modifyDate
-    *******************************************************************************/
-   public void setModifyDate(Instant modifyDate)
-   {
-      this.modifyDate = modifyDate;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for modifyDate
-    *******************************************************************************/
-   public WorkflowRevision withModifyDate(Instant modifyDate)
-   {
-      this.modifyDate = modifyDate;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for versionNo
-    *******************************************************************************/
-   public Integer getVersionNo()
-   {
-      return (this.versionNo);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for versionNo
-    *******************************************************************************/
-   public void setVersionNo(Integer versionNo)
-   {
-      this.versionNo = versionNo;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for versionNo
-    *******************************************************************************/
-   public WorkflowRevision withVersionNo(Integer versionNo)
-   {
-      this.versionNo = versionNo;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for startStepNo
-    *******************************************************************************/
-   public Integer getStartStepNo()
-   {
-      return (this.startStepNo);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for startStepNo
-    *******************************************************************************/
-   public void setStartStepNo(Integer startStepNo)
-   {
-      this.startStepNo = startStepNo;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for startStepNo
-    *******************************************************************************/
-   public WorkflowRevision withStartStepNo(Integer startStepNo)
-   {
-      this.startStepNo = startStepNo;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for commitMessage
-    *******************************************************************************/
-   public String getCommitMessage()
-   {
-      return (this.commitMessage);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for commitMessage
-    *******************************************************************************/
-   public void setCommitMessage(String commitMessage)
-   {
-      this.commitMessage = commitMessage;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for commitMessage
-    *******************************************************************************/
-   public WorkflowRevision withCommitMessage(String commitMessage)
-   {
-      this.commitMessage = commitMessage;
       return (this);
    }
 
@@ -407,7 +241,7 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
    /*******************************************************************************
     ** Fluent setter for workflowId
     *******************************************************************************/
-   public WorkflowRevision withWorkflowId(Integer workflowId)
+   public WorkflowRunLog withWorkflowId(Integer workflowId)
    {
       this.workflowId = workflowId;
       return (this);
@@ -416,9 +250,133 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
 
 
    /*******************************************************************************
+    ** Getter for workflowRevisionId
+    *******************************************************************************/
+   public Integer getWorkflowRevisionId()
+   {
+      return (this.workflowRevisionId);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for workflowRevisionId
+    *******************************************************************************/
+   public void setWorkflowRevisionId(Integer workflowRevisionId)
+   {
+      this.workflowRevisionId = workflowRevisionId;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for workflowRevisionId
+    *******************************************************************************/
+   public WorkflowRunLog withWorkflowRevisionId(Integer workflowRevisionId)
+   {
+      this.workflowRevisionId = workflowRevisionId;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for inputDataJson
+    *******************************************************************************/
+   public String getInputDataJson()
+   {
+      return (this.inputDataJson);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for inputDataJson
+    *******************************************************************************/
+   public void setInputDataJson(String inputDataJson)
+   {
+      this.inputDataJson = inputDataJson;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for inputDataJson
+    *******************************************************************************/
+   public WorkflowRunLog withInputDataJson(String inputDataJson)
+   {
+      this.inputDataJson = inputDataJson;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for startTimestamp
+    *******************************************************************************/
+   public Instant getStartTimestamp()
+   {
+      return (this.startTimestamp);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for startTimestamp
+    *******************************************************************************/
+   public void setStartTimestamp(Instant startTimestamp)
+   {
+      this.startTimestamp = startTimestamp;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for startTimestamp
+    *******************************************************************************/
+   public WorkflowRunLog withStartTimestamp(Instant startTimestamp)
+   {
+      this.startTimestamp = startTimestamp;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for endTimestamp
+    *******************************************************************************/
+   public Instant getEndTimestamp()
+   {
+      return (this.endTimestamp);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for endTimestamp
+    *******************************************************************************/
+   public void setEndTimestamp(Instant endTimestamp)
+   {
+      this.endTimestamp = endTimestamp;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for endTimestamp
+    *******************************************************************************/
+   public WorkflowRunLog withEndTimestamp(Instant endTimestamp)
+   {
+      this.endTimestamp = endTimestamp;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
     ** Getter for steps
     *******************************************************************************/
-   public List<WorkflowStep> getSteps()
+   public List<WorkflowRunLogStep> getSteps()
    {
       return (this.steps);
    }
@@ -428,7 +386,7 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
    /*******************************************************************************
     ** Setter for steps
     *******************************************************************************/
-   public void setSteps(List<WorkflowStep> steps)
+   public void setSteps(List<WorkflowRunLogStep> steps)
    {
       this.steps = steps;
    }
@@ -438,7 +396,7 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
    /*******************************************************************************
     ** Fluent setter for steps
     *******************************************************************************/
-   public WorkflowRevision withSteps(List<WorkflowStep> steps)
+   public WorkflowRunLog withSteps(List<WorkflowRunLogStep> steps)
    {
       this.steps = steps;
       return (this);
@@ -447,125 +405,94 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
 
 
    /*******************************************************************************
-    ** Getter for links
+    ** Getter for hadError
     *******************************************************************************/
-   public List<WorkflowLink> getLinks()
+   public Boolean getHadError()
    {
-      return (this.links);
+      return (this.hadError);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for links
+    ** Setter for hadError
     *******************************************************************************/
-   public void setLinks(List<WorkflowLink> links)
+   public void setHadError(Boolean hadError)
    {
-      this.links = links;
+      this.hadError = hadError;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for links
+    ** Fluent setter for hadError
     *******************************************************************************/
-   public WorkflowRevision withLinks(List<WorkflowLink> links)
+   public WorkflowRunLog withHadError(Boolean hadError)
    {
-      this.links = links;
+      this.hadError = hadError;
+      return (this);
+   }
+
+
+   /*******************************************************************************
+    ** Getter for inputRecordQqqTableId
+    *******************************************************************************/
+   public Integer getInputRecordQqqTableId()
+   {
+      return (this.inputRecordQqqTableId);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for inputRecordQqqTableId
+    *******************************************************************************/
+   public void setInputRecordQqqTableId(Integer inputRecordQqqTableId)
+   {
+      this.inputRecordQqqTableId = inputRecordQqqTableId;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for inputRecordQqqTableId
+    *******************************************************************************/
+   public WorkflowRunLog withInputRecordQqqTableId(Integer inputRecordQqqTableId)
+   {
+      this.inputRecordQqqTableId = inputRecordQqqTableId;
       return (this);
    }
 
 
 
    /*******************************************************************************
-    ** Getter for author
+    ** Getter for inputRecordId
     *******************************************************************************/
-   public String getAuthor()
+   public Integer getInputRecordId()
    {
-      return (this.author);
+      return (this.inputRecordId);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for author
+    ** Setter for inputRecordId
     *******************************************************************************/
-   public void setAuthor(String author)
+   public void setInputRecordId(Integer inputRecordId)
    {
-      this.author = author;
+      this.inputRecordId = inputRecordId;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for author
+    ** Fluent setter for inputRecordId
     *******************************************************************************/
-   public WorkflowRevision withAuthor(String author)
+   public WorkflowRunLog withInputRecordId(Integer inputRecordId)
    {
-      this.author = author;
+      this.inputRecordId = inputRecordId;
       return (this);
    }
 
-
-
-   /*******************************************************************************
-    ** Getter for apiName
-    *******************************************************************************/
-   public String getApiName()
-   {
-      return (this.apiName);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for apiName
-    *******************************************************************************/
-   public void setApiName(String apiName)
-   {
-      this.apiName = apiName;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for apiName
-    *******************************************************************************/
-   public WorkflowRevision withApiName(String apiName)
-   {
-      this.apiName = apiName;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for apiVersion
-    *******************************************************************************/
-   public String getApiVersion()
-   {
-      return (this.apiVersion);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for apiVersion
-    *******************************************************************************/
-   public void setApiVersion(String apiVersion)
-   {
-      this.apiVersion = apiVersion;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for apiVersion
-    *******************************************************************************/
-   public WorkflowRevision withApiVersion(String apiVersion)
-   {
-      this.apiVersion = apiVersion;
-      return (this);
-   }
 
 }

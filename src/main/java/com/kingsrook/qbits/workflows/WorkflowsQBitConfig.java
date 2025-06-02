@@ -23,10 +23,16 @@ package com.kingsrook.qbits.workflows;
 
 
 import java.util.List;
+import com.kingsrook.qbits.workflows.tracing.WorkflowRunLogTracer;
+import com.kingsrook.qbits.workflows.tracing.WorkflowTracerInterface;
+import com.kingsrook.qqq.api.model.metadata.ApiInstanceMetaData;
+import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
+import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.producers.MetaDataCustomizerInterface;
 import com.kingsrook.qqq.backend.core.model.metadata.qbits.QBitConfig;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
+import com.kingsrook.qqq.backend.core.utils.ClassPathUtils;
 
 
 /*******************************************************************************
@@ -37,6 +43,24 @@ public class WorkflowsQBitConfig implements QBitConfig
 {
    private MetaDataCustomizerInterface<QTableMetaData> tableMetaDataCustomizer;
 
+   private static boolean apiMiddlewareModuleAvailable;
+
+   private boolean        includeApiVersions          = false;
+   private String         customStoreNewWorkflowRevisionProcessName;
+   private String         componentSourceUrl;
+   private QCodeReference workflowTracerCodeReference = new QCodeReference(WorkflowRunLogTracer.class);
+
+
+
+   /*******************************************************************************
+    ** Constructor
+    **
+    *******************************************************************************/
+   public WorkflowsQBitConfig()
+   {
+      apiMiddlewareModuleAvailable = ClassPathUtils.isClassAvailable(ApiInstanceMetaData.class.getName());
+   }
+
 
 
    /***************************************************************************
@@ -45,7 +69,17 @@ public class WorkflowsQBitConfig implements QBitConfig
    @Override
    public void validate(QInstance qInstance, List<String> errors)
    {
-      // assertCondition(someTableConfig != null, "someTableConfig must be provided", errors);
+      if(includeApiVersions && !apiMiddlewareModuleAvailable)
+      {
+         errors.add("Workflows QBit is configured to includeApiVersions, but the qqq-middleware-api module is available.");
+      }
+
+      if(workflowTracerCodeReference != null)
+      {
+         QInstanceValidator qInstanceValidator = new QInstanceValidator();
+         qInstanceValidator.validateSimpleCodeReference("Workflows qbit config workflowTracerCodeReference", workflowTracerCodeReference, WorkflowTracerInterface.class);
+         errors.addAll(qInstanceValidator.getErrors());
+      }
    }
 
 
@@ -76,6 +110,141 @@ public class WorkflowsQBitConfig implements QBitConfig
    public WorkflowsQBitConfig withTableMetaDataCustomizer(MetaDataCustomizerInterface<QTableMetaData> tableMetaDataCustomizer)
    {
       this.tableMetaDataCustomizer = tableMetaDataCustomizer;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for includeApiVersions
+    *******************************************************************************/
+   public boolean getIncludeApiVersions()
+   {
+      return (this.includeApiVersions);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for includeApiVersions
+    *******************************************************************************/
+   public void setIncludeApiVersions(boolean includeApiVersions)
+   {
+      this.includeApiVersions = includeApiVersions;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for includeApiVersions
+    *******************************************************************************/
+   public WorkflowsQBitConfig withIncludeApiVersions(boolean includeApiVersions)
+   {
+      this.includeApiVersions = includeApiVersions;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for apiMiddlewareModuleAvailable
+    **
+    *******************************************************************************/
+   public static boolean getApiMiddlewareModuleAvailable()
+   {
+      return apiMiddlewareModuleAvailable;
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for customStoreNewWorkflowRevisionProcessName
+    *******************************************************************************/
+   public String getCustomStoreNewWorkflowRevisionProcessName()
+   {
+      return (this.customStoreNewWorkflowRevisionProcessName);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for customStoreNewWorkflowRevisionProcessName
+    *******************************************************************************/
+   public void setCustomStoreNewWorkflowRevisionProcessName(String customStoreNewWorkflowRevisionProcessName)
+   {
+      this.customStoreNewWorkflowRevisionProcessName = customStoreNewWorkflowRevisionProcessName;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for customStoreNewWorkflowRevisionProcessName
+    *******************************************************************************/
+   public WorkflowsQBitConfig withCustomStoreNewWorkflowRevisionProcessName(String customStoreNewWorkflowRevisionProcessName)
+   {
+      this.customStoreNewWorkflowRevisionProcessName = customStoreNewWorkflowRevisionProcessName;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for componentSourceUrl
+    *******************************************************************************/
+   public String getComponentSourceUrl()
+   {
+      return (this.componentSourceUrl);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for componentSourceUrl
+    *******************************************************************************/
+   public void setComponentSourceUrl(String componentSourceUrl)
+   {
+      this.componentSourceUrl = componentSourceUrl;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for componentSourceUrl
+    *******************************************************************************/
+   public WorkflowsQBitConfig withComponentSourceUrl(String componentSourceUrl)
+   {
+      this.componentSourceUrl = componentSourceUrl;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for workflowTracerCodeReference
+    *******************************************************************************/
+   public QCodeReference getWorkflowTracerCodeReference()
+   {
+      return (this.workflowTracerCodeReference);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for workflowTracerCodeReference
+    *******************************************************************************/
+   public void setWorkflowTracerCodeReference(QCodeReference workflowTracerCodeReference)
+   {
+      this.workflowTracerCodeReference = workflowTracerCodeReference;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for workflowTracerCodeReference
+    *******************************************************************************/
+   public WorkflowsQBitConfig withWorkflowTracerCodeReference(QCodeReference workflowTracerCodeReference)
+   {
+      this.workflowTracerCodeReference = workflowTracerCodeReference;
       return (this);
    }
 

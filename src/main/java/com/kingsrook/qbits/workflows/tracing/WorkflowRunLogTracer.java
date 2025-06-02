@@ -19,24 +19,45 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.kingsrook.qbits.workflows.execution;
+package com.kingsrook.qbits.workflows.tracing;
 
 
 import java.io.Serializable;
-import java.util.Map;
-import com.kingsrook.qbits.workflows.model.WorkflowStep;
-import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qbits.workflows.model.WorkflowRunLog;
+import com.kingsrook.qqq.backend.core.actions.tables.InsertAction;
+import com.kingsrook.qqq.backend.core.logging.QLogger;
+import com.kingsrook.qqq.backend.core.model.actions.tables.insert.InsertInput;
+import com.kingsrook.qqq.backend.core.model.actions.tables.insert.InsertOutput;
 
 
 /*******************************************************************************
- ** interface for the code that executes a single step in a workflow.
+ ** default implementation of a workflow run log tracer, that inserts into the
+ ** workflowRunLog and workflowRunLogStep tables.
  *******************************************************************************/
-public interface WorkflowStepExecutorInterface
+public class WorkflowRunLogTracer implements WorkflowTracerInterface
 {
+   private static final QLogger LOG = QLogger.getLogger(WorkflowRunLogTracer.class);
+
+
 
    /***************************************************************************
     **
     ***************************************************************************/
-   Serializable execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException;
+   @Override
+   public Serializable handleWorkflowFinish(WorkflowRunLog workflowRunLog)
+   {
+      try
+      {
+         InsertOutput insertOutput = new InsertAction().execute(new InsertInput(WorkflowRunLog.TABLE_NAME).withRecordEntity(workflowRunLog));
+         Long         insertedId   = insertOutput.getRecords().get(0).getValueLong("id");
+         workflowRunLog.setId(insertedId);
+         return (insertedId);
+      }
+      catch(Exception e)
+      {
+         LOG.warn("Error inserting workflow run log", e);
+         return (null);
+      }
+   }
 
 }

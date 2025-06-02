@@ -23,7 +23,9 @@ package com.kingsrook.qbits.workflows.definition;
 
 
 /*******************************************************************************
- **
+ ** for a stepType with more than one outbound links, e.g., with conditional guards
+ ** on them, an instance of this class describes one such link (e.g., "true" labeled
+ ** for users as "Then").
  *******************************************************************************/
 public class OutboundLinkOption
 {

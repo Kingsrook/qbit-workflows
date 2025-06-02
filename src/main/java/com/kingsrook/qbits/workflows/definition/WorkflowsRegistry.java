@@ -34,7 +34,7 @@ import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
 /*******************************************************************************
- **
+ ** Singleton that stores the available workflow types and their step types.
  *******************************************************************************/
 public class WorkflowsRegistry
 {
@@ -158,7 +158,7 @@ public class WorkflowsRegistry
     ***************************************************************************/
    public void validate(QInstance qInstance, QInstanceValidator qInstanceValidator)
    {
-      workflowTypes.values().forEach(wt -> wt.validate(qInstanceValidator));
-      workflowStepTypes.values().forEach(workflowStepType -> workflowStepType.validate(qInstanceValidator));
+      workflowTypes.values().forEach(wt -> wt.validate(qInstanceValidator, qInstance));
+      workflowStepTypes.values().forEach(workflowStepType -> workflowStepType.validate(qInstanceValidator, qInstance));
    }
 }

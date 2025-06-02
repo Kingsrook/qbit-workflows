@@ -22,27 +22,39 @@
 package com.kingsrook.qbits.workflows.processes;
 
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepTypeCategory;
 import com.kingsrook.qbits.workflows.definition.WorkflowType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
+import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
+import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepInput;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepOutput;
+import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerInterface;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
+import com.kingsrook.qqq.backend.core.model.metadata.frontend.QFrontendFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QBackendStepMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QFunctionInputMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
+import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
+import com.kingsrook.qqq.backend.core.utils.JsonUtils;
+import com.kingsrook.qqq.backend.core.utils.StringUtils;
 
 
 /*******************************************************************************
- **
+ ** process to load a workflowType's definition (the type and its stepTypes)
  *******************************************************************************/
 public class GetWorkflowTypeDefinitionProcess implements BackendStep, MetaDataProducerInterface<QProcessMetaData>
 {
@@ -73,31 +85,72 @@ public class GetWorkflowTypeDefinitionProcess implements BackendStep, MetaDataPr
    @Override
    public void run(RunBackendStepInput runBackendStepInput, RunBackendStepOutput runBackendStepOutput) throws QException
    {
-      String       workflowTypeName = runBackendStepInput.getValueString("workflowTypeName");
-      WorkflowType workflowType     = WorkflowsRegistry.getInstance().getWorkflowType(workflowTypeName);
-      if(workflowType == null)
+      try
       {
-         throw new QException("Workflow type not found: " + workflowTypeName);
-      }
-      runBackendStepOutput.addValue("workflowType", workflowType);
+         String  workflowTypeName = runBackendStepInput.getValueString("workflowTypeName");
+         Integer workflowId       = runBackendStepInput.getValueInteger("workflowId");
+         QRecord workflowRecord   = null;
 
-      ////////////////////////////////////////////////////////////////////////////////
-      // put all of the step types that the workflow type uses into a map to return //
-      ////////////////////////////////////////////////////////////////////////////////
-      LinkedHashMap<String, WorkflowStepType> workflowStepTypes = new LinkedHashMap<>();
-      for(WorkflowStepTypeCategory stepTypeCategory : workflowType.getStepTypeCategories())
-      {
-         for(String workflowStepTypeName : stepTypeCategory.getWorkflowStepTypes())
+         if(workflowId != null)
          {
-            WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(workflowStepTypeName);
-            if(workflowStepType == null)
+            workflowRecord = GetAction.execute(Workflow.TABLE_NAME, workflowId);
+            if(workflowRecord != null && workflowTypeName == null)
             {
-               throw new QException("Workflow step type not found: " + workflowStepTypeName);
+               workflowTypeName = workflowRecord.getValueString("workflowTypeName");
             }
-            workflowStepTypes.put(workflowStepTypeName, workflowStepType);
          }
+
+         if(!StringUtils.hasContent(workflowTypeName))
+         {
+            throw (new QException("Did not receive workflow type name input - cannot proceed."));
+         }
+
+         WorkflowType workflowType = WorkflowsRegistry.getInstance().getWorkflowType(workflowTypeName);
+         if(workflowType == null)
+         {
+            throw new QException("Workflow type not found: " + workflowTypeName);
+         }
+
+         workflowType = workflowType.customizeBasedOnWorkflow(workflowRecord);
+
+         runBackendStepOutput.addValue("workflowType", workflowType);
+
+         ////////////////////////////////////////////////////////////////////////////////
+         // put all of the step types that the workflow type uses into a map to return //
+         ////////////////////////////////////////////////////////////////////////////////
+         LinkedHashMap<String, Map<String, Object>> workflowStepTypes = new LinkedHashMap<>();
+         for(WorkflowStepTypeCategory stepTypeCategory : workflowType.getStepTypeCategories())
+         {
+            for(String workflowStepTypeName : stepTypeCategory.getWorkflowStepTypes())
+            {
+               WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(workflowStepTypeName);
+               if(workflowStepType == null)
+               {
+                  throw new QException("Workflow step type not found: " + workflowStepTypeName);
+               }
+
+               Map<String, Object> workflowStepTypeJson = JsonUtils.toObject(JsonUtils.toJson(workflowStepType), new TypeReference<>() {});
+               if(CollectionUtils.nullSafeHasContents(workflowStepType.getInputFields()))
+               {
+                  List<QFrontendFieldMetaData> frontendFields = new ArrayList<>();
+                  workflowStepTypeJson.put("inputFields", frontendFields);
+
+                  for(QFieldMetaData inputField : workflowStepType.getInputFields())
+                  {
+                     QFrontendFieldMetaData frontendFieldMetaData = new QFrontendFieldMetaData(inputField);
+                     frontendFields.add(frontendFieldMetaData);
+                  }
+               }
+
+               workflowStepTypes.put(workflowStepTypeName, workflowStepTypeJson);
+            }
+         }
+         runBackendStepOutput.addValue("workflowStepTypes", workflowStepTypes);
       }
-      runBackendStepOutput.addValue("workflowStepTypes", workflowStepTypes);
+      catch(IOException e)
+      {
+         throw new QException("Error getting workflow type definition", e);
+      }
    }
 
 }

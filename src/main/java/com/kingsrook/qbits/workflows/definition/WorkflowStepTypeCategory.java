@@ -27,7 +27,7 @@ import java.util.List;
 
 
 /*******************************************************************************
- **
+ ** collection of step-types within a workflow type.  just organizational.
  *******************************************************************************/
 public class WorkflowStepTypeCategory implements Serializable
 {

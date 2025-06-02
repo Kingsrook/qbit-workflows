@@ -30,6 +30,7 @@ import com.kingsrook.qbits.workflows.execution.WorkflowTypeExecutorInterface;
 import com.kingsrook.qqq.backend.core.actions.customizers.QCodeLoader;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
 import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
+import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
@@ -37,7 +38,9 @@ import com.kingsrook.qqq.backend.core.utils.StringUtils;
 
 
 /*******************************************************************************
- **
+ ** a type of workflow available to the application.  contains WorkflowStepTypeCategory
+ ** objects in a list, which contain the WorkflowStepType objects allowed for the
+ ** workflow.
  *******************************************************************************/
 public class WorkflowType implements Serializable
 {
@@ -66,7 +69,7 @@ public class WorkflowType implements Serializable
    /***************************************************************************
     **
     ***************************************************************************/
-   public void validate(QInstanceValidator qInstanceValidator)
+   public void validate(QInstanceValidator qInstanceValidator, QInstance qInstance)
    {
       qInstanceValidator.assertCondition(StringUtils.hasContent(name), "WorkflowType name is required.");
       qInstanceValidator.assertCondition(executor != null, "WorkflowType [" + name + "]: executor is required.");
@@ -230,4 +233,13 @@ public class WorkflowType implements Serializable
       return (this);
    }
 
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public WorkflowType customizeBasedOnWorkflow(QRecord workflowRecord)
+   {
+      return (this);
+   }
 }

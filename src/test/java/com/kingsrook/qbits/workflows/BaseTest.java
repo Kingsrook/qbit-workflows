@@ -37,7 +37,9 @@ import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.audits.AuditLevel;
 import com.kingsrook.qqq.backend.core.model.metadata.audits.QAuditRules;
 import com.kingsrook.qqq.backend.core.model.metadata.authentication.QAuthenticationMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.TablesPossibleValueSourceMetaDataProvider;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
+import com.kingsrook.qqq.backend.core.model.tables.QQQTablesMetaDataProvider;
 import com.kingsrook.qqq.backend.core.modules.backend.implementations.memory.MemoryBackendModule;
 import com.kingsrook.qqq.backend.core.modules.backend.implementations.memory.MemoryRecordStore;
 import com.kingsrook.qqq.backend.module.rdbms.jdbc.ConnectionManager;
@@ -116,10 +118,15 @@ public class BaseTest
          .withName(MEMORY_BACKEND_NAME)
          .withBackendType(MemoryBackendModule.class));
 
+      new QQQTablesMetaDataProvider().defineAll(qInstance, MEMORY_BACKEND_NAME, MEMORY_BACKEND_NAME, null);
+
+      qInstance.addPossibleValueSource(TablesPossibleValueSourceMetaDataProvider.defineTablesPossibleValueSource(qInstance));
+
       ////////////////////////
       // configure the qbit //
       ////////////////////////
       WorkflowsQBitConfig config = new WorkflowsQBitConfig()
+         .withIncludeApiVersions(false)
          .withTableMetaDataCustomizer((i, table) ->
          {
             if(table.getBackendName() == null)

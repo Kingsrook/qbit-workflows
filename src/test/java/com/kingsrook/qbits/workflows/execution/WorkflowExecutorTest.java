@@ -23,24 +23,11 @@ package com.kingsrook.qbits.workflows.execution;
 
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 import com.kingsrook.qbits.workflows.BaseTest;
 import com.kingsrook.qbits.workflows.TestWorkflowDefinitions;
-import com.kingsrook.qbits.workflows.model.Workflow;
-import com.kingsrook.qbits.workflows.model.WorkflowLink;
-import com.kingsrook.qbits.workflows.model.WorkflowRevision;
-import com.kingsrook.qbits.workflows.model.WorkflowStep;
-import com.kingsrook.qqq.backend.core.actions.tables.InsertAction;
-import com.kingsrook.qqq.backend.core.actions.tables.UpdateAction;
+import com.kingsrook.qbits.workflows.WorkflowsTestDataSource;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
-import com.kingsrook.qqq.backend.core.model.actions.tables.insert.InsertInput;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
-import com.kingsrook.qqq.backend.core.model.actions.tables.update.UpdateInput;
-import com.kingsrook.qqq.backend.core.model.data.QRecord;
-import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -59,77 +46,7 @@ class WorkflowExecutorTest extends BaseTest
    void test() throws QException
    {
       TestWorkflowDefinitions.registerTestWorkflowTypes();
-
-      QRecord workflow = new InsertAction().execute(new InsertInput(Workflow.TABLE_NAME).withRecordEntity(new Workflow()
-         .withWorkflowTypeName(TestWorkflowDefinitions.TEST_WORKFLOW_TYPE)
-         .withName("test")
-      )).getRecords().get(0);
-      Integer workflowId = workflow.getValueInteger("id");
-
-      QRecord workflowRevision = new InsertAction().execute(new InsertInput(WorkflowRevision.TABLE_NAME).withRecordEntity(new WorkflowRevision()
-         .withWorkflowId(workflowId)
-         .withStartStepNo(1)
-      )).getRecords().get(0);
-      Integer revisionId = workflowRevision.getValueInteger("id");
-
-      new UpdateAction().execute(new UpdateInput(Workflow.TABLE_NAME).withRecord(new QRecord()
-         .withValue("id", workflowId)
-         .withValue("currentWorkflowRevisionId", revisionId)
-      ));
-
-      new InsertAction().execute(new InsertInput(WorkflowStep.TABLE_NAME).withRecordEntities(List.of(
-         new WorkflowStep()
-            .withWorkflowRevisionId(revisionId)
-            .withStepNo(1)
-            .withInputValuesJson(JsonUtils.toJson(Map.of("x", 1)))
-            .withWorkflowStepTypeName(TestWorkflowDefinitions.ADD_X_TO_SUM_ACTION),
-         new WorkflowStep()
-            .withWorkflowRevisionId(revisionId)
-            .withStepNo(2)
-            .withInputValuesJson(JsonUtils.toJson(Map.of("x", 2)))
-            .withWorkflowStepTypeName(TestWorkflowDefinitions.ADD_X_TO_SUM_ACTION),
-         new WorkflowStep()
-            .withWorkflowRevisionId(revisionId)
-            .withStepNo(3)
-            .withInputValuesJson(JsonUtils.toJson(Map.of("filter", new QQueryFilter(new QFilterCriteria("condition", QCriteriaOperator.EQUALS, true)))))
-            .withWorkflowStepTypeName(TestWorkflowDefinitions.BOOLEAN_CONDITIONAL),
-         new WorkflowStep()
-            .withWorkflowRevisionId(revisionId)
-            .withStepNo(4)
-            .withInputValuesJson(JsonUtils.toJson(Map.of("x", 3)))
-            .withWorkflowStepTypeName(TestWorkflowDefinitions.ADD_X_TO_SUM_ACTION),
-         new WorkflowStep()
-            .withWorkflowRevisionId(revisionId)
-            .withStepNo(5)
-            .withInputValuesJson(JsonUtils.toJson(Map.of("x", 4)))
-            .withWorkflowStepTypeName(TestWorkflowDefinitions.ADD_X_TO_SUM_ACTION),
-         new WorkflowStep()
-            .withWorkflowRevisionId(revisionId)
-            .withStepNo(6)
-            .withInputValuesJson(JsonUtils.toJson(Map.of("x", 5)))
-            .withWorkflowStepTypeName(TestWorkflowDefinitions.ADD_X_TO_SUM_ACTION)
-      )));
-
-      new InsertAction().execute(new InsertInput(WorkflowLink.TABLE_NAME).withRecordEntities(List.of(
-         new WorkflowLink().withWorkflowRevisionId(revisionId)
-            .withFromStepNo(1).withToStepNo(2)
-            .withConditionValue(null),
-         new WorkflowLink().withWorkflowRevisionId(revisionId)
-            .withFromStepNo(2).withToStepNo(3)
-            .withConditionValue(null),
-         new WorkflowLink().withWorkflowRevisionId(revisionId)
-            .withFromStepNo(3).withToStepNo(4)
-            .withConditionValue("true"),
-         new WorkflowLink().withWorkflowRevisionId(revisionId)
-            .withFromStepNo(3).withToStepNo(5)
-            .withConditionValue("false"),
-         new WorkflowLink().withWorkflowRevisionId(revisionId)
-            .withFromStepNo(4).withToStepNo(6)
-            .withConditionValue(null),
-         new WorkflowLink().withWorkflowRevisionId(revisionId)
-            .withFromStepNo(5).withToStepNo(6)
-            .withConditionValue(null)
-      )));
+      Integer workflowId = WorkflowsTestDataSource.insertTestWorkflow();
 
       WorkflowOutput output;
 

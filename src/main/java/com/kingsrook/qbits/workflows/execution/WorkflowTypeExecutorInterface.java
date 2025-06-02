@@ -23,15 +23,18 @@ package com.kingsrook.qbits.workflows.execution;
 
 
 import java.io.Serializable;
-import java.util.Map;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
+import com.kingsrook.qqq.backend.core.actions.QBackendTransaction;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.model.actions.tables.insert.InsertInput;
+import com.kingsrook.qqq.backend.core.utils.StringUtils;
 
 
 /*******************************************************************************
- **
+ ** interface for the code that executes a workflow type - though really just
+ ** pre & post, plus pre- & post- individual steps
  *******************************************************************************/
 public interface WorkflowTypeExecutorInterface
 {
@@ -39,7 +42,7 @@ public interface WorkflowTypeExecutorInterface
    /***************************************************************************
     **
     ***************************************************************************/
-   default void preRun(Map<String, Serializable> context, Workflow workflow, WorkflowRevision workflowRevision) throws QException
+   default void preRun(WorkflowExecutionContext context, Workflow workflow, WorkflowRevision workflowRevision) throws QException
    {
 
    }
@@ -47,16 +50,16 @@ public interface WorkflowTypeExecutorInterface
    /***************************************************************************
     **
     ***************************************************************************/
-   default void postRun(Map<String, Serializable> context) throws QException
+   default void postRun(WorkflowExecutionContext context) throws QException
    {
 
    }
 
 
    /***************************************************************************
-    *
+    **
     ***************************************************************************/
-   default void preStep(WorkflowStep step, Map<String, Serializable> context) throws QException
+   default void handleException(Exception e, WorkflowExecutionContext values) throws QException
    {
 
    }
@@ -64,9 +67,29 @@ public interface WorkflowTypeExecutorInterface
    /***************************************************************************
     *
     ***************************************************************************/
-   default Serializable postStep(WorkflowStep step, Map<String, Serializable> context, Serializable stepOutput) throws QException
+   default void preStep(WorkflowStep step, WorkflowExecutionContext context) throws QException
+   {
+
+   }
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   default Serializable postStep(WorkflowStep step, WorkflowExecutionContext context, Serializable stepOutput) throws QException
    {
       return stepOutput;
    }
 
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   default QBackendTransaction openTransaction(Workflow workflow, WorkflowRevision workflowRevision) throws QException
+   {
+      if(StringUtils.hasContent(workflow.getTableName()))
+      {
+         return (QBackendTransaction.openFor(new InsertInput(workflow.getTableName())));
+      }
+
+      return (null);
+   }
 }

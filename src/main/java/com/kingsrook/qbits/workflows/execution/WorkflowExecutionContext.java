@@ -24,18 +24,82 @@ package com.kingsrook.qbits.workflows.execution;
 
 import java.io.Serializable;
 import java.util.Map;
-import com.kingsrook.qbits.workflows.model.WorkflowRunLog;
-import com.kingsrook.qqq.backend.core.model.actions.AbstractActionOutput;
+import com.kingsrook.qbits.workflows.model.Workflow;
+import com.kingsrook.qbits.workflows.model.WorkflowRevision;
+import com.kingsrook.qqq.backend.core.actions.QBackendTransaction;
 
 
 /*******************************************************************************
- **
+ ** data that moves along with a workflow as it is being executed
  *******************************************************************************/
-public class WorkflowOutput extends AbstractActionOutput implements Serializable
+public class WorkflowExecutionContext
 {
-   private Exception                 exception;
+   private Workflow                  workflow;
+   private WorkflowRevision          workflowRevision;
    private Map<String, Serializable> values;
-   private WorkflowRunLog            workflowRunLog;
+   private QBackendTransaction       transaction;
+
+
+
+   /*******************************************************************************
+    ** Getter for workflow
+    *******************************************************************************/
+   public Workflow getWorkflow()
+   {
+      return (this.workflow);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for workflow
+    *******************************************************************************/
+   public void setWorkflow(Workflow workflow)
+   {
+      this.workflow = workflow;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for workflow
+    *******************************************************************************/
+   public WorkflowExecutionContext withWorkflow(Workflow workflow)
+   {
+      this.workflow = workflow;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for workflowRevision
+    *******************************************************************************/
+   public WorkflowRevision getWorkflowRevision()
+   {
+      return (this.workflowRevision);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for workflowRevision
+    *******************************************************************************/
+   public void setWorkflowRevision(WorkflowRevision workflowRevision)
+   {
+      this.workflowRevision = workflowRevision;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for workflowRevision
+    *******************************************************************************/
+   public WorkflowExecutionContext withWorkflowRevision(WorkflowRevision workflowRevision)
+   {
+      this.workflowRevision = workflowRevision;
+      return (this);
+   }
 
 
 
@@ -62,7 +126,7 @@ public class WorkflowOutput extends AbstractActionOutput implements Serializable
    /*******************************************************************************
     ** Fluent setter for values
     *******************************************************************************/
-   public WorkflowOutput withValues(Map<String, Serializable> values)
+   public WorkflowExecutionContext withValues(Map<String, Serializable> values)
    {
       this.values = values;
       return (this);
@@ -71,62 +135,31 @@ public class WorkflowOutput extends AbstractActionOutput implements Serializable
 
 
    /*******************************************************************************
-    ** Getter for exception
+    ** Getter for transaction
     *******************************************************************************/
-   public Exception getException()
+   public QBackendTransaction getTransaction()
    {
-      return (this.exception);
+      return (this.transaction);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for exception
+    ** Setter for transaction
     *******************************************************************************/
-   public void setException(Exception exception)
+   public void setTransaction(QBackendTransaction transaction)
    {
-      this.exception = exception;
+      this.transaction = transaction;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for exception
+    ** Fluent setter for transaction
     *******************************************************************************/
-   public WorkflowOutput withException(Exception exception)
+   public WorkflowExecutionContext withTransaction(QBackendTransaction transaction)
    {
-      this.exception = exception;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for workflowRunLog
-    *******************************************************************************/
-   public WorkflowRunLog getWorkflowRunLog()
-   {
-      return (this.workflowRunLog);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for workflowRunLog
-    *******************************************************************************/
-   public void setWorkflowRunLog(WorkflowRunLog workflowRunLog)
-   {
-      this.workflowRunLog = workflowRunLog;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for workflowRunLog
-    *******************************************************************************/
-   public WorkflowOutput withWorkflowRunLog(WorkflowRunLog workflowRunLog)
-   {
-      this.workflowRunLog = workflowRunLog;
+      this.transaction = transaction;
       return (this);
    }
 

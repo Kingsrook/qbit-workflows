@@ -22,16 +22,21 @@
 package com.kingsrook.qbits.workflows.model;
 
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import com.kingsrook.qbits.workflows.metadata.WorkflowEditorWidget;
 import com.kingsrook.qbits.workflows.metadata.WorkflowTypePossibleValueSource;
+import com.kingsrook.qbits.workflows.tables.WorkflowTableCustomizer;
+import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizers;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterOrderBy;
 import com.kingsrook.qqq.backend.core.model.data.QField;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.data.QRecordEntity;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
+import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.ValueTooLongBehavior;
 import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
@@ -43,6 +48,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.producers.annotations.Child
 import com.kingsrook.qqq.backend.core.model.metadata.producers.annotations.QMetaDataProducingEntity;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.SectionFactory;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.TablesPossibleValueSourceMetaDataProvider;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.UniqueKey;
 
 
@@ -58,10 +64,15 @@ import com.kingsrook.qqq.backend.core.model.metadata.tables.UniqueKey;
          childTableEntityClass = WorkflowRevision.class,
          joinFieldName = "workflowId",
          childJoin = @ChildJoin(enabled = true),
-         childRecordListWidget = @ChildRecordListWidget(label = "Revisions", enabled = true, maxRows = 50, widgetMetaDataCustomizer = Workflow.RevisionChildListWidgetCustomizer.class))
+         childRecordListWidget = @ChildRecordListWidget(label = "Revisions", enabled = true, maxRows = 50, widgetMetaDataCustomizer = Workflow.RevisionChildListWidgetCustomizer.class)),
+      @ChildTable(
+         childTableEntityClass = WorkflowRunLog.class,
+         joinFieldName = "workflowId",
+         childJoin = @ChildJoin(enabled = true),
+         childRecordListWidget = @ChildRecordListWidget(label = "Run Logs", enabled = true, maxRows = 50, widgetMetaDataCustomizer = Workflow.RunLogChildListWidgetCustomizer.class))
    }
 )
-public class Workflow extends QRecordEntity
+public class Workflow extends QRecordEntity implements Serializable
 {
    public static final String TABLE_NAME = "workflow";
 
@@ -79,7 +90,8 @@ public class Workflow extends QRecordEntity
       @Override
       public QTableMetaData customizeMetaData(QInstance qInstance, QTableMetaData table) throws QException
       {
-         String childJoinName = QJoinMetaData.makeInferredJoinName(TABLE_NAME, WorkflowRevision.TABLE_NAME);
+         String revisionsChildJoinName = QJoinMetaData.makeInferredJoinName(TABLE_NAME, WorkflowRevision.TABLE_NAME);
+         String runLogsChildJoinName   = QJoinMetaData.makeInferredJoinName(TABLE_NAME, WorkflowRunLog.TABLE_NAME);
 
          table
             .withUniqueKey(new UniqueKey("name"))
@@ -87,19 +99,43 @@ public class Workflow extends QRecordEntity
             .withRecordLabelFormat("%s")
             .withRecordLabelFields("name")
             .withSection(SectionFactory.defaultT1("id", "name"))
-            .withSection(SectionFactory.defaultT2("workflowTypeName", "currentWorkflowRevisionId"))
-            .withSection(SectionFactory.customT2("revisions", new QIcon("schema")).withWidgetName(childJoinName))
+            .withSection(SectionFactory.customT2("workflowEditorWidget", new QIcon("account_tree")).withLabel("Workflow Steps").withWidgetName(WorkflowEditorWidget.NAME))
+            .withSection(SectionFactory.defaultT2("workflowTypeName", "tableName", "currentWorkflowRevisionId"))
+            .withSection(SectionFactory.customT2("revisions", new QIcon("schema")).withWidgetName(revisionsChildJoinName))
+            .withSection(SectionFactory.customT2("runLogs", new QIcon("receipt_long")).withWidgetName(runLogsChildJoinName))
             .withSection(SectionFactory.defaultT3("createDate", "modifyDate"));
+
+         table.withCustomizer(TableCustomizers.PRE_INSERT_RECORD, new QCodeReference(WorkflowTableCustomizer.class));
 
          return (table);
       }
    }
 
 
+
    /***************************************************************************
     **
     ***************************************************************************/
    public static class RevisionChildListWidgetCustomizer implements MetaDataCustomizerInterface<QWidgetMetaData>
+   {
+
+      /***************************************************************************
+       **
+       ***************************************************************************/
+      @Override
+      public QWidgetMetaData customizeMetaData(QInstance qInstance, QWidgetMetaData widget) throws QException
+      {
+         widget.withDefaultValue("orderBy", new ArrayList<>(List.of(new QFilterOrderBy("id", false))));
+         return widget;
+      }
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public static class RunLogChildListWidgetCustomizer implements MetaDataCustomizerInterface<QWidgetMetaData>
    {
 
       /***************************************************************************
@@ -123,6 +159,9 @@ public class Workflow extends QRecordEntity
 
    @QField(maxLength = 100, valueTooLongBehavior = ValueTooLongBehavior.ERROR, possibleValueSourceName = WorkflowTypePossibleValueSource.NAME, label = "Workflow Type", isRequired = true)
    private String workflowTypeName;
+
+   @QField(maxLength = 100, valueTooLongBehavior = ValueTooLongBehavior.ERROR, possibleValueSourceName = TablesPossibleValueSourceMetaDataProvider.NAME, label = "Table")
+   private String tableName;
 
    @QField(isEditable = false, possibleValueSourceName = WorkflowRevision.TABLE_NAME)
    private Integer currentWorkflowRevisionId;
@@ -335,6 +374,37 @@ public class Workflow extends QRecordEntity
    public Workflow withWorkflowTypeName(String workflowTypeName)
    {
       this.workflowTypeName = workflowTypeName;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for tableName
+    *******************************************************************************/
+   public String getTableName()
+   {
+      return (this.tableName);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for tableName
+    *******************************************************************************/
+   public void setTableName(String tableName)
+   {
+      this.tableName = tableName;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for tableName
+    *******************************************************************************/
+   public Workflow withTableName(String tableName)
+   {
+      this.tableName = tableName;
       return (this);
    }
 

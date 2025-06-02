@@ -25,14 +25,14 @@ package com.kingsrook.qbits.workflows.processes;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.kingsrook.qbits.workflows.definition.WorkflowType;
+import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowLink;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
+import com.kingsrook.qqq.backend.core.actions.QBackendTransaction;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
 import com.kingsrook.qqq.backend.core.actions.tables.AggregateAction;
 import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
@@ -64,12 +64,15 @@ import com.kingsrook.qqq.backend.core.model.metadata.processes.QBackendStepMetaD
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QFunctionInputMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
+import com.kingsrook.qqq.backend.core.utils.ObjectUtils;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
+import org.json.JSONObject;
+import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
 /*******************************************************************************
- **
+ ** process to save a new revision of a workflow, with its steps and links.
  *******************************************************************************/
 public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataProducerInterface<QProcessMetaData>
 {
@@ -92,8 +95,9 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
             .withName("execute")
             .withCode(new QCodeReference(getClass()))
             .withInputData(new QFunctionInputMetaData()
-               .withField(new QFieldMetaData("workflowTypeName", QFieldType.STRING))
                .withField(new QFieldMetaData("workflowId", QFieldType.INTEGER))
+               .withField(new QFieldMetaData("apiName", QFieldType.STRING).withPossibleValueSourceName("apiName"))
+               .withField(new QFieldMetaData("apiVersion", QFieldType.STRING).withPossibleValueSourceName("apiVersion"))
                .withField(new QFieldMetaData("steps", QFieldType.STRING)) // JSON
                .withField(new QFieldMetaData("links", QFieldType.STRING)) // JSON
             ));
@@ -107,84 +111,71 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
    @Override
    public void run(RunBackendStepInput runBackendStepInput, RunBackendStepOutput runBackendStepOutput) throws QException
    {
+      QBackendTransaction transaction = null;
+
       try
       {
-         String       workflowTypeName = runBackendStepInput.getValueString("workflowTypeName");
-         WorkflowType workflowType     = WorkflowsRegistry.getInstance().getWorkflowType(workflowTypeName);
-         if(workflowType == null)
-         {
-            throw new QException("Workflow type not found: " + workflowTypeName);
-         }
+         InsertInput workflowRevisionInsertInput = new InsertInput(WorkflowRevision.TABLE_NAME);
+         transaction = QBackendTransaction.openFor(workflowRevisionInsertInput);
 
-         List<WorkflowStep> workflowSteps = JsonUtils.toObject(runBackendStepInput.getValueString("steps"), new TypeReference<>() {});
-         List<WorkflowLink> workflowLinks = JsonUtils.toObject(runBackendStepInput.getValueString("links"), new TypeReference<>() {});
-         Integer            workflowId    = runBackendStepInput.getValueInteger("workflowId");
-         String             commitMessage = runBackendStepInput.getValueString("commitMessage");
-         Integer            versionNo     = null;
-
+         ///////////////////////////////////////////////////////////////////////////////////
+         // load the workflow that the revision is for (mostly just validating it exists) //
+         ///////////////////////////////////////////////////////////////////////////////////
+         Integer workflowId = runBackendStepInput.getValueInteger("workflowId");
          if(workflowId == null)
          {
-            Workflow workflow = new Workflow().withWorkflowTypeName(workflowTypeName);
-            workflow.setName("TODO WIP " + UUID.randomUUID()); // todo wip
-
-            // todo wip extra fields (client id)
-            QRecord workflowRecord = workflow.toQRecord();
-            setAdditionalValuesInWorkflowRecord(runBackendStepInput, workflowRecord);
-
-            workflowId = new InsertAction().execute(new InsertInput(Workflow.TABLE_NAME).withRecord(workflowRecord))
-               .getRecords().get(0).getValueInteger("id");
-
-            if(workflowId == null)
-            {
-               throw (new QUserFacingException("Error inserting new workflow"));
-            }
-            versionNo = 1;
+            throw (new QUserFacingException("Workflow id is required for storing new workflow revision."));
          }
-         else
+
+         QRecord workflowRecord = GetAction.execute(Workflow.TABLE_NAME, workflowId);
+         if(workflowRecord == null)
          {
-            QRecord workflowRecord = GetAction.execute(Workflow.TABLE_NAME, workflowId);
-            if(workflowRecord == null)
-            {
-               throw (new QUserFacingException("Workflow not found by id: " + workflowId));
-            }
-
-            AggregateInput aggregateInput = new AggregateInput();
-            aggregateInput.setTableName(WorkflowRevision.TABLE_NAME);
-            aggregateInput.setFilter(new QQueryFilter(new QFilterCriteria("workflowId", QCriteriaOperator.EQUALS, workflowId)));
-            Aggregate maxId = new Aggregate("versionNo", AggregateOperator.MAX);
-            aggregateInput.withAggregate(maxId);
-            AggregateOutput aggregateOutput = new AggregateAction().execute(aggregateInput);
-            if(!aggregateOutput.getResults().isEmpty())
-            {
-               Serializable maxValue = aggregateOutput.getResults().get(0).getAggregateValue(maxId);
-               versionNo = ValueUtils.getValueAsInteger(Objects.requireNonNullElse(maxValue, 0)) + 1;
-            }
-
-            if(versionNo == null)
-            {
-               throw new QUserFacingException("Error getting next version number for workflow.");
-            }
+            throw (new QUserFacingException("Workflow not found by id: " + workflowId));
          }
 
+         ////////////////////////////
+         // look up next versionNo //
+         ////////////////////////////
+         AggregateInput aggregateInput = new AggregateInput();
+         aggregateInput.setTableName(WorkflowRevision.TABLE_NAME);
+         aggregateInput.setFilter(new QQueryFilter(new QFilterCriteria("workflowId", QCriteriaOperator.EQUALS, workflowId)));
+         Aggregate maxId = new Aggregate("versionNo", AggregateOperator.MAX);
+         aggregateInput.withAggregate(maxId);
+         AggregateOutput aggregateOutput = new AggregateAction().execute(aggregateInput);
+
+         Integer versionNo = null;
+         if(!aggregateOutput.getResults().isEmpty())
+         {
+            Serializable maxValue = aggregateOutput.getResults().get(0).getAggregateValue(maxId);
+            versionNo = ValueUtils.getValueAsInteger(Objects.requireNonNullElse(maxValue, 0)) + 1;
+         }
+
+         if(versionNo == null)
+         {
+            throw new QUserFacingException("Error getting next version number for workflow.");
+         }
+
+         //////////////////////////////////
+         // insert the workflow revision //
+         //////////////////////////////////
+         String           commitMessage    = runBackendStepInput.getValueString("commitMessage");
          WorkflowRevision workflowRevision = new WorkflowRevision();
          workflowRevision.setWorkflowId(workflowId);
          workflowRevision.setVersionNo(versionNo);
          workflowRevision.setCommitMessage(StringUtils.hasContent(commitMessage) ? commitMessage : "New workflow revision created by  " + QContext.getQSession().getUser().getFullName());
-         workflowRevision.setStartStepNo(1); // todo - input? or delete field?
-
-         try
-         {
-            workflowRevision.setAuthor(QContext.getQSession().getUser().getFullName());
-         }
-         catch(Exception e)
-         {
-            workflowRevision.setAuthor("Unknown");
-         }
+         workflowRevision.setApiName(runBackendStepInput.getValueString("apiName"));
+         workflowRevision.setApiVersion(runBackendStepInput.getValueString("apiVersion"));
+         workflowRevision.setStartStepNo(1);
+         workflowRevision.setAuthor(ObjectUtils.tryElse(() -> QContext.getQSession().getUser().getFullName(), "Unknown"));
 
          QRecord workflowRevisionRecord = workflowRevision.toQRecord();
-         setAdditionalValuesInWorkflowRevisionRecord(runBackendStepInput, workflowRevisionRecord);
+         setAdditionalValuesInWorkflowRevisionRecord(transaction, runBackendStepInput, workflowRevisionRecord);
 
-         InsertOutput insertOutput             = new InsertAction().execute(new InsertInput(WorkflowRevision.TABLE_NAME).withRecord(workflowRevisionRecord));
+         workflowRevisionInsertInput
+            .withTransaction(transaction)
+            .withRecord(workflowRevisionRecord);
+
+         InsertOutput insertOutput             = new InsertAction().execute(workflowRevisionInsertInput);
          QRecord      insertedWorkflowRevision = insertOutput.getRecords().get(0);
          Integer      insertedRevisionId       = insertedWorkflowRevision.getValueInteger("id");
          if(insertedRevisionId == null)
@@ -192,18 +183,45 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
             throw (new QUserFacingException("Error inserting new workflow revision"));
          }
 
-         workflowSteps.forEach(step -> step.setWorkflowRevisionId(insertedRevisionId));
-         new InsertAction().execute(new InsertInput(WorkflowStep.TABLE_NAME).withRecordEntities(workflowSteps));
+         /////////////////////////////////////////////////////////////////////////
+         // store steps (first setting revision id and a fresh summary on each) //
+         /////////////////////////////////////////////////////////////////////////
+         List<WorkflowStep> workflowSteps = JsonUtils.toObject(runBackendStepInput.getValueString("steps"), new TypeReference<>() {});
+         workflowSteps.forEach(step ->
+         {
+            step.setWorkflowRevisionId(insertedRevisionId);
 
+            try
+            {
+               WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(step.getWorkflowStepTypeName());
+               JSONObject       values           = new JSONObject(step.getInputValuesJson());
+               step.setSummary(workflowStepType.getDynamicStepSummary(workflowId, values));
+            }
+            catch(Exception e)
+            {
+               LOG.warn("Error setting step summary for step", e, logPair("stepTypeName", step.getWorkflowStepTypeName()), logPair("workflowRevisionId", insertedRevisionId));
+            }
+         });
+         new InsertAction().execute(new InsertInput(WorkflowStep.TABLE_NAME).withRecordEntities(workflowSteps).withTransaction(transaction));
+
+         /////////////////
+         // store links //
+         /////////////////
+         List<WorkflowLink> workflowLinks = JsonUtils.toObject(runBackendStepInput.getValueString("links"), new TypeReference<>() {});
          workflowLinks.forEach(link -> link.setWorkflowRevisionId(insertedRevisionId));
-         new InsertAction().execute(new InsertInput(WorkflowLink.TABLE_NAME).withRecordEntities(workflowLinks));
+         new InsertAction().execute(new InsertInput(WorkflowLink.TABLE_NAME).withRecordEntities(workflowLinks).withTransaction(transaction));
 
-         new UpdateAction().execute(new UpdateInput(Workflow.TABLE_NAME).withRecord(new Workflow()
+         //////////////////////////////////////////////////
+         // update workflow with the current revision id //
+         //////////////////////////////////////////////////
+         new UpdateAction().execute(new UpdateInput(Workflow.TABLE_NAME).withTransaction(transaction).withRecord(new Workflow()
             .withId(workflowId)
             .withCurrentWorkflowRevisionId(insertedRevisionId)
             .toQRecordOnlyChangedFields(true)));
 
-         postAction(workflowId, insertedRevisionId);
+         postAction(transaction, workflowId, insertedRevisionId);
+
+         transaction.commit();
 
          runBackendStepOutput.addValue("workflowId", workflowId);
          runBackendStepOutput.addValue("workflowRevisionId", insertedRevisionId);
@@ -211,14 +229,29 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
       }
       catch(QUserFacingException ufe)
       {
+         if(transaction != null)
+         {
+            transaction.rollback();
+         }
          LOG.info("User-facing error storing workflow revision", ufe);
          throw ufe;
       }
       catch(Exception e)
       {
+         if(transaction != null)
+         {
+            transaction.rollback();
+         }
          String message = "Error storing workflow revision";
          LOG.warn(message, e);
          throw new QException(message, e);
+      }
+      finally
+      {
+         if(transaction != null)
+         {
+            transaction.close();
+         }
       }
    }
 
@@ -227,7 +260,7 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
    /***************************************************************************
     **
     ***************************************************************************/
-   protected void postAction(Integer workflowId, Integer workflowRevisionId) throws QException
+   protected void postAction(QBackendTransaction transaction, Integer workflowId, Integer workflowRevisionId) throws QException
    {
 
    }
@@ -237,7 +270,7 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
    /***************************************************************************
     **
     ***************************************************************************/
-   protected void setAdditionalValuesInWorkflowRecord(RunBackendStepInput runBackendStepInput, QRecord workflowRecord)
+   protected void setAdditionalValuesInWorkflowRecord(QBackendTransaction transaction, RunBackendStepInput runBackendStepInput, QRecord workflowRecord)
    {
 
    }
@@ -247,7 +280,7 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
    /***************************************************************************
     **
     ***************************************************************************/
-   protected void setAdditionalValuesInWorkflowRevisionRecord(RunBackendStepInput runBackendStepInput, QRecord workflowRevisionRecord)
+   protected void setAdditionalValuesInWorkflowRevisionRecord(QBackendTransaction transaction, RunBackendStepInput runBackendStepInput, QRecord workflowRevisionRecord)
    {
 
    }

@@ -27,6 +27,7 @@ import java.util.Map;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.definition.WorkflowType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
+import com.kingsrook.qbits.workflows.execution.WorkflowExecutionContext;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepExecutorInterface;
 import com.kingsrook.qbits.workflows.execution.WorkflowTypeExecutorInterface;
 import com.kingsrook.qbits.workflows.model.Workflow;
@@ -83,10 +84,10 @@ public class TestWorkflowDefinitions
        **
        ***************************************************************************/
       @Override
-      public void preRun(Map<String, Serializable> context, Workflow workflow, WorkflowRevision workflowRevision)
+      public void preRun(WorkflowExecutionContext context, Workflow workflow, WorkflowRevision workflowRevision)
       {
-         Integer seedValue = ValueUtils.getValueAsInteger(context.getOrDefault("seedValue", 0));
-         context.put("sum", seedValue);
+         Integer seedValue = ValueUtils.getValueAsInteger(context.getValues().getOrDefault("seedValue", 0));
+         context.getValues().put("sum", seedValue);
       }
 
 
@@ -95,12 +96,12 @@ public class TestWorkflowDefinitions
        **
        ***************************************************************************/
       @Override
-      public void postRun(Map<String, Serializable> context)
+      public void postRun(WorkflowExecutionContext context)
       {
-         Integer overrideSumInPostRun = ValueUtils.getValueAsInteger(context.get("overrideSumInPostRun"));
+         Integer overrideSumInPostRun = ValueUtils.getValueAsInteger(context.getValues().get("overrideSumInPostRun"));
          if(overrideSumInPostRun != null)
          {
-            context.put("sum", overrideSumInPostRun);
+            context.getValues().put("sum", overrideSumInPostRun);
          }
       }
 
@@ -110,13 +111,13 @@ public class TestWorkflowDefinitions
        **
        ***************************************************************************/
       @Override
-      public void preStep(WorkflowStep step, Map<String, Serializable> context)
+      public void preStep(WorkflowStep step, WorkflowExecutionContext context)
       {
-         Serializable doubleSumInEveryPreStep = context.get("doubleSumInEveryPreStep");
+         Serializable doubleSumInEveryPreStep = context.getValues().get("doubleSumInEveryPreStep");
          if(doubleSumInEveryPreStep != null)
          {
-            Integer sum = ValueUtils.getValueAsInteger(context.getOrDefault("sum", 0));
-            context.put("sum", sum * 2);
+            Integer sum = ValueUtils.getValueAsInteger(context.getValues().getOrDefault("sum", 0));
+            context.getValues().put("sum", sum * 2);
          }
       }
 
@@ -126,9 +127,9 @@ public class TestWorkflowDefinitions
        **
        ***************************************************************************/
       @Override
-      public Serializable postStep(WorkflowStep step, Map<String, Serializable> context, Serializable stepOutput)
+      public Serializable postStep(WorkflowStep step, WorkflowExecutionContext context, Serializable stepOutput)
       {
-         Serializable overrideReturnValueInPostStep = context.get("overrideReturnValueInPostStep");
+         Serializable overrideReturnValueInPostStep = context.getValues().get("overrideReturnValueInPostStep");
          if(overrideReturnValueInPostStep != null)
          {
             return (overrideReturnValueInPostStep);
@@ -149,13 +150,13 @@ public class TestWorkflowDefinitions
        **
        ***************************************************************************/
       @Override
-      public Serializable execute(WorkflowStep step, Map<String, Serializable> inputValues, Map<String, Serializable> context)
+      public Serializable execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context)
       {
-         Integer sum = ValueUtils.getValueAsInteger(context.getOrDefault("sum", 0));
+         Integer sum = ValueUtils.getValueAsInteger(context.getValues().getOrDefault("sum", 0));
          Integer x   = ValueUtils.getValueAsInteger(inputValues.getOrDefault("x", 0));
 
          Integer newSum = sum + x;
-         context.put("sum", newSum);
+         context.getValues().put("sum", newSum);
 
          return (newSum);
       }
@@ -172,7 +173,7 @@ public class TestWorkflowDefinitions
        **
        ***************************************************************************/
       @Override
-      public Serializable execute(WorkflowStep step, Map<String, Serializable> inputValues, Map<String, Serializable> context)
+      public Serializable execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context)
       {
          /* ??
          Map<String, Object> inputValues = getInputValues(step);
@@ -182,7 +183,7 @@ public class TestWorkflowDefinitions
          }
          */
 
-         Boolean condition = ValueUtils.getValueAsBoolean(context.getOrDefault("condition", false));
+         Boolean condition = ValueUtils.getValueAsBoolean(context.getValues().getOrDefault("condition", false));
          return (condition);
       }
    }
