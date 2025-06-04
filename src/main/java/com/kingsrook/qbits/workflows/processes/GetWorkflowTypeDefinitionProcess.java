@@ -23,6 +23,7 @@ package com.kingsrook.qbits.workflows.processes;
 
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -146,6 +147,15 @@ public class GetWorkflowTypeDefinitionProcess implements BackendStep, MetaDataPr
             }
          }
          runBackendStepOutput.addValue("workflowStepTypes", workflowStepTypes);
+
+         //////////////////////////////////////////
+         // get custom values and pass along too //
+         //////////////////////////////////////////
+         Map<String, Serializable> additionalDefinitionValues = workflowType.getAdditionalDefinitionValues(workflowRecord);
+         for(Map.Entry<String, Serializable> entry : CollectionUtils.nonNullMap(additionalDefinitionValues).entrySet())
+         {
+            runBackendStepOutput.addValue(entry.getKey(), entry.getValue());
+         }
       }
       catch(IOException e)
       {

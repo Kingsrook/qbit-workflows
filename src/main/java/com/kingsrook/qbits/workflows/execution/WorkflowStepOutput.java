@@ -23,20 +23,32 @@ package com.kingsrook.qbits.workflows.execution;
 
 
 import java.io.Serializable;
-import java.util.Map;
-import com.kingsrook.qbits.workflows.model.WorkflowStep;
-import com.kingsrook.qqq.backend.core.exceptions.QException;
 
 
-/*******************************************************************************
- ** interface for the code that executes a single step in a workflow.
- *******************************************************************************/
-public interface WorkflowStepExecutorInterface
+/***************************************************************************
+ **
+ ***************************************************************************/
+public record WorkflowStepOutput(Serializable outputData, String message)
 {
 
-   /***************************************************************************
+   /*******************************************************************************
+    ** Constructor
     **
-    ***************************************************************************/
-   WorkflowStepOutput execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException;
+    *******************************************************************************/
+   public WorkflowStepOutput(Serializable outputData)
+   {
+      this(outputData, null);
+   }
+
+
+
+   /*******************************************************************************
+    ** Constructor
+    **
+    *******************************************************************************/
+   public WorkflowStepOutput()
+   {
+      this(null, null);
+   }
 
 }

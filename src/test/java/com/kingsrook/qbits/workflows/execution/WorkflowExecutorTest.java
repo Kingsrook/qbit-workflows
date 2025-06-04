@@ -28,7 +28,9 @@ import com.kingsrook.qbits.workflows.BaseTest;
 import com.kingsrook.qbits.workflows.TestWorkflowDefinitions;
 import com.kingsrook.qbits.workflows.WorkflowsTestDataSource;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.utils.collections.MapBuilder;
 import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -91,6 +93,23 @@ class WorkflowExecutorTest extends BaseTest
       output = executeWorkflow(workflowId, Map.of("condition", true, "overrideReturnValueInPostStep", false));
       assertNull(output.getException());
       assertEquals(12, output.getValues().get("sum"));
+   }
+
+
+
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   @Test
+   void testError() throws QException
+   {
+      TestWorkflowDefinitions.registerTestWorkflowTypes();
+      Integer workflowId = WorkflowsTestDataSource.insertTestWorkflow();
+
+      WorkflowOutput output;
+      output = executeWorkflow(workflowId, MapBuilder.of("condition", true, "seedValue", null));
+      assertThat(output.getException()).isInstanceOf(NullPointerException.class);
+      assertThat(output.getWorkflowRunLog().getErrorMessage()).contains("intValue()\" because \"sum\" is null");
    }
 
 

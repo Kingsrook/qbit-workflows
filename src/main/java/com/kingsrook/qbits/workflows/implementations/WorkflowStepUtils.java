@@ -19,24 +19,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.kingsrook.qbits.workflows.execution;
+package com.kingsrook.qbits.workflows.implementations;
 
 
-import java.io.Serializable;
-import java.util.Map;
-import com.kingsrook.qbits.workflows.model.WorkflowStep;
-import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qbits.workflows.WorkflowsQBitConfig;
+import com.kingsrook.qbits.workflows.model.WorkflowRevision;
+import com.kingsrook.qqq.backend.core.utils.StringUtils;
 
 
 /*******************************************************************************
- ** interface for the code that executes a single step in a workflow.
+ **
  *******************************************************************************/
-public interface WorkflowStepExecutorInterface
+public class WorkflowStepUtils
 {
 
    /***************************************************************************
     **
     ***************************************************************************/
-   WorkflowStepOutput execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException;
+   public static boolean useApi(WorkflowRevision workflowRevision)
+   {
+      return(WorkflowsQBitConfig.getApiMiddlewareModuleAvailable() && StringUtils.hasContent(workflowRevision.getApiName()) && StringUtils.hasContent(workflowRevision.getApiVersion()));
+   }
 
 }

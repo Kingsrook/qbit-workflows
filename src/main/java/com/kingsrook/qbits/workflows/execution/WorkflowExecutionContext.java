@@ -26,6 +26,7 @@ import java.io.Serializable;
 import java.util.Map;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
+import com.kingsrook.qbits.workflows.model.WorkflowRunLog;
 import com.kingsrook.qqq.backend.core.actions.QBackendTransaction;
 
 
@@ -38,6 +39,7 @@ public class WorkflowExecutionContext
    private WorkflowRevision          workflowRevision;
    private Map<String, Serializable> values;
    private QBackendTransaction       transaction;
+   private WorkflowRunLog            workflowRunLog;
 
 
 
@@ -162,5 +164,36 @@ public class WorkflowExecutionContext
       this.transaction = transaction;
       return (this);
    }
+
+
+   /*******************************************************************************
+    ** Getter for workflowRunLog
+    *******************************************************************************/
+   public WorkflowRunLog getWorkflowRunLog()
+   {
+      return (this.workflowRunLog);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for workflowRunLog
+    *******************************************************************************/
+   public void setWorkflowRunLog(WorkflowRunLog workflowRunLog)
+   {
+      this.workflowRunLog = workflowRunLog;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for workflowRunLog
+    *******************************************************************************/
+   public WorkflowExecutionContext withWorkflowRunLog(WorkflowRunLog workflowRunLog)
+   {
+      this.workflowRunLog = workflowRunLog;
+      return (this);
+   }
+
 
 }

@@ -27,6 +27,13 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import com.kingsrook.qqq.api.model.APIVersion;
+import com.kingsrook.qqq.api.model.metadata.ApiInstanceMetaData;
+import com.kingsrook.qqq.api.model.metadata.ApiInstanceMetaDataContainer;
+import com.kingsrook.qqq.api.model.metadata.fields.ApiFieldMetaData;
+import com.kingsrook.qqq.api.model.metadata.fields.ApiFieldMetaDataContainer;
+import com.kingsrook.qqq.api.model.metadata.tables.ApiTableMetaData;
+import com.kingsrook.qqq.api.model.metadata.tables.ApiTableMetaDataContainer;
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
@@ -37,7 +44,13 @@ import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.audits.AuditLevel;
 import com.kingsrook.qqq.backend.core.model.metadata.audits.QAuditRules;
 import com.kingsrook.qqq.backend.core.model.metadata.authentication.QAuthenticationMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.DisplayFormat;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
+import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSource;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.TablesPossibleValueSourceMetaDataProvider;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.UniqueKey;
 import com.kingsrook.qqq.backend.core.model.session.QSession;
 import com.kingsrook.qqq.backend.core.model.tables.QQQTablesMetaDataProvider;
 import com.kingsrook.qqq.backend.core.modules.backend.implementations.memory.MemoryBackendModule;
@@ -57,6 +70,20 @@ public class BaseTest
 {
    public static final String RDBMS_BACKEND_NAME  = "h2rdbms";
    public static final String MEMORY_BACKEND_NAME = "memory";
+
+   public static final String TABLE_NAME_PERSON = "person";
+
+   public static final String API_NAME             = "test-api";
+   public static final String ALTERNATIVE_API_NAME = "person-api";
+
+   public static final String API_PATH             = "/api/";
+   public static final String ALTERNATIVE_API_PATH = "/person-api/";
+
+   public static final String V1 = "v1";
+   public static final String V2 = "v2";
+   public static final String V3 = "v3";
+
+   public static final String CURRENT_API_VERSION = V2;
 
 
 
@@ -152,7 +179,107 @@ public class BaseTest
       // turn off audits (why on by default??) //
       ///////////////////////////////////////////
       qInstance.getTables().values().forEach(t -> t.setAuditRules(new QAuditRules().withAuditLevel(AuditLevel.NONE)));
+
+      qInstance.addTable(defineTablePerson());
+      qInstance.addPossibleValueSource(QPossibleValueSource.newForTable(TABLE_NAME_PERSON));
+      defineApiMetaData(qInstance);
+
       return qInstance;
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   private void defineApiMetaData(QInstance qInstance)
+   {
+      qInstance.withSupplementalMetaData(new ApiInstanceMetaDataContainer()
+         .withApiInstanceMetaData(new ApiInstanceMetaData()
+            .withName(API_NAME)
+            .withPath(API_PATH)
+            .withLabel("Test API")
+            .withDescription("QQQ Test API")
+            .withContactEmail("contact@kingsrook.com")
+            .withCurrentVersion(new APIVersion(CURRENT_API_VERSION))
+            .withSupportedVersions(List.of(new APIVersion(V1), new APIVersion(V2)))
+            .withPastVersions(List.of(new APIVersion(V1)))
+            .withFutureVersions(List.of(new APIVersion(V3))))
+         .withApiInstanceMetaData(new ApiInstanceMetaData()
+            .withName(ALTERNATIVE_API_NAME)
+            .withPath(ALTERNATIVE_API_PATH)
+            .withLabel("Person-Only API")
+            .withDescription("QQQ Test API, that only has the Person table.")
+            .withContactEmail("contact@kingsrook.com")
+            .withCurrentVersion(new APIVersion(CURRENT_API_VERSION))
+            .withSupportedVersions(List.of(new APIVersion(V1), new APIVersion(V2)))
+            .withPastVersions(List.of(new APIVersion(V1)))
+            .withFutureVersions(List.of(new APIVersion(V3))))
+      );
+
+   }
+
+
+
+   /*******************************************************************************
+    ** Define the 'person' table used in standard tests.
+    *******************************************************************************/
+   public static QTableMetaData defineTablePerson()
+   {
+      QTableMetaData table = new QTableMetaData()
+         .withName(TABLE_NAME_PERSON)
+         .withLabel("Person")
+         .withRecordLabelFormat("%s %s")
+         .withRecordLabelFields("firstName", "lastName")
+         .withBackendName(MEMORY_BACKEND_NAME)
+         .withPrimaryKeyField("id")
+         .withUniqueKey(new UniqueKey("email"))
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("createDate", QFieldType.DATE_TIME).withIsEditable(false))
+         .withField(new QFieldMetaData("modifyDate", QFieldType.DATE_TIME).withIsEditable(false))
+         .withField(new QFieldMetaData("firstName", QFieldType.STRING))
+         .withField(new QFieldMetaData("lastName", QFieldType.STRING))
+         .withField(new QFieldMetaData("birthDate", QFieldType.DATE))
+         .withField(new QFieldMetaData("email", QFieldType.STRING))
+         .withField(new QFieldMetaData("bestFriendPersonId", QFieldType.INTEGER).withPossibleValueSourceName(TABLE_NAME_PERSON))
+         .withField(new QFieldMetaData("noOfShoes", QFieldType.INTEGER).withDisplayFormat(DisplayFormat.COMMAS))
+         .withField(new QFieldMetaData("cost", QFieldType.DECIMAL).withDisplayFormat(DisplayFormat.CURRENCY))
+         .withField(new QFieldMetaData("price", QFieldType.DECIMAL).withDisplayFormat(DisplayFormat.CURRENCY))
+         .withField(new QFieldMetaData("photo", QFieldType.BLOB));
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      // make some changes to this table in the "main" api (but leave it like the backend in the ALTERNATIVE_API_NAME) //
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      table.withSupplementalMetaData(new ApiTableMetaDataContainer()
+         .withApiTableMetaData(API_NAME, new ApiTableMetaData()
+            .withInitialVersion(V1)
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // in 2022.Q4, this table had a "shoeCount" field. but for the 2023.Q1 version, we renamed it to noOfShoes! //
+            //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            .withRemovedApiField(new QFieldMetaData("shoeCount", QFieldType.INTEGER).withDisplayFormat(DisplayFormat.COMMAS)
+               .withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME,
+                  new ApiFieldMetaData().withFinalVersion(V1).withReplacedByFieldName("noOfShoes"))))
+         )
+         .withApiTableMetaData(ALTERNATIVE_API_NAME, new ApiTableMetaData().withInitialVersion(V1)));
+
+      /////////////////////////////////////////////////////
+      // change the name for this field for the main api //
+      /////////////////////////////////////////////////////
+      table.getField("birthDate").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withApiFieldName("birthDay")));
+
+      ////////////////////////////////////////////////////////////////////////////////
+      // See above - we renamed this field (in the backend) for the 2023_Q1 version //
+      ////////////////////////////////////////////////////////////////////////////////
+      table.getField("noOfShoes").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withInitialVersion(V2)));
+
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+      // 2 new fields - one will appear in a future version of the API, the other is always excluded //
+      /////////////////////////////////////////////////////////////////////////////////////////////////
+      table.getField("cost").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withInitialVersion(V3)));
+      table.getField("price").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withIsExcluded(true)));
+
+      return (table);
    }
 
 }

@@ -22,7 +22,6 @@
 package com.kingsrook.qbits.workflows.execution;
 
 
-import java.io.Serializable;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
@@ -75,7 +74,7 @@ public interface WorkflowTypeExecutorInterface
    /***************************************************************************
     *
     ***************************************************************************/
-   default Serializable postStep(WorkflowStep step, WorkflowExecutionContext context, Serializable stepOutput) throws QException
+   default WorkflowStepOutput postStep(WorkflowStep step, WorkflowExecutionContext context, WorkflowStepOutput stepOutput) throws QException
    {
       return stepOutput;
    }

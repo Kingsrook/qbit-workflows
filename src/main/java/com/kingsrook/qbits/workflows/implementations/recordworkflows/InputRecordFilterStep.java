@@ -26,12 +26,13 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import com.kingsrook.qbits.workflows.WorkflowsQBitConfig;
 import com.kingsrook.qbits.workflows.definition.OutboundLinkMode;
 import com.kingsrook.qbits.workflows.definition.OutboundLinkOption;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.execution.WorkflowExecutionContext;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepExecutorInterface;
+import com.kingsrook.qbits.workflows.execution.WorkflowStepOutput;
+import com.kingsrook.qbits.workflows.implementations.WorkflowStepUtils;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
@@ -48,7 +49,6 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
-import com.kingsrook.qqq.backend.core.utils.StringUtils;
 import org.json.JSONObject;
 
 
@@ -101,7 +101,7 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
     **
     ***************************************************************************/
    @Override
-   public Serializable execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException
+   public WorkflowStepOutput execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException
    {
       QRecord record = (QRecord) context.getValues().get("record");
       if(record == null)
@@ -119,7 +119,7 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
       QFilterCriteria  idEqualsCriteria = new QFilterCriteria("id", QCriteriaOperator.EQUALS, record.getValueInteger("id"));
       WorkflowRevision workflowRevision = context.getWorkflowRevision();
 
-      if(WorkflowsQBitConfig.getApiMiddlewareModuleAvailable() && StringUtils.hasContent(workflowRevision.getApiName()) && StringUtils.hasContent(workflowRevision.getApiVersion()))
+      if(WorkflowStepUtils.useApi(workflowRevision))
       {
          count = countViaApi(context, inputFilter, idEqualsCriteria);
       }
@@ -136,10 +136,10 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
 
       if(count == null || count == 0)
       {
-         return (false);
+         return (new WorkflowStepOutput(false));
       }
 
-      return (true);
+      return (new WorkflowStepOutput(true));
    }
 
 

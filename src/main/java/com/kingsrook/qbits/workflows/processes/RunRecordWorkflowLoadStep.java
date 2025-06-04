@@ -45,8 +45,6 @@ import com.kingsrook.qqq.backend.core.model.actions.processes.ProcessSummaryLine
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepInput;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepOutput;
 import com.kingsrook.qqq.backend.core.model.actions.processes.Status;
-import com.kingsrook.qqq.backend.core.model.actions.tables.get.GetInput;
-import com.kingsrook.qqq.backend.core.model.actions.tables.get.GetOutput;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
@@ -103,24 +101,20 @@ public class RunRecordWorkflowLoadStep extends AbstractLoadStep implements Proce
    {
       runBackendStepInput.getAsyncJobCallback().updateStatus("Running workflow");
 
+      Integer workflowId = runBackendStepInput.getValueInteger("workflowId");
+      QRecord workflow   = GetAction.execute(Workflow.TABLE_NAME, workflowId);
+      if(workflow == null)
+      {
+         throw (new QException("Could not find workflow by id: " + workflowId));
+      }
+
+      String         tableName = workflow.getValueString("tableName");
+      QTableMetaData table     = QContext.getQInstance().getTable(tableName);
+
       for(QRecord record : runBackendStepInput.getRecords())
       {
+         okLine.incrementCountAndAddPrimaryKey(record.getValueInteger(table.getPrimaryKeyField()));
          runBackendStepInput.getAsyncJobCallback().incrementCurrent();
-
-         Integer workflowId = runBackendStepInput.getValueInteger("workflowId");
-
-         GetInput getInput = new GetInput();
-         getInput.setTableName(Workflow.TABLE_NAME);
-         getInput.setPrimaryKey(workflowId);
-         GetOutput getOutput = new GetAction().execute(getInput);
-         QRecord   workflow  = getOutput.getRecord();
-         if(workflow == null)
-         {
-            throw (new QException("Could not find workflow by id: " + workflowId));
-         }
-
-         String         tableName = workflow.getValueString("tableName");
-         QTableMetaData table     = QContext.getQInstance().getTable(tableName);
 
          WorkflowInput workflowInput = new WorkflowInput();
          workflowInput.setWorkflowId(workflowId);
@@ -153,7 +147,7 @@ public class RunRecordWorkflowLoadStep extends AbstractLoadStep implements Proce
             Long id = workflowRunLog.getId();
             if(id != null)
             {
-               auditMessage += ", creating workflow log: " + id;
+               auditMessage += ", creating Workflow Run Log: " + id;
                boolean hadError = BooleanUtils.isTrue(workflowRunLog.getHadError());
                (hadError ? errorWorkflowLogIds : okWorkflowLogIds).add(id);
             }
@@ -228,13 +222,13 @@ public class RunRecordWorkflowLoadStep extends AbstractLoadStep implements Proce
       if(CollectionUtils.nullSafeHasContents(okWorkflowLogIds))
       {
          summary.add(new ProcessSummaryFilterLink(Status.OK, WorkflowRunLog.TABLE_NAME, new QQueryFilter(new QFilterCriteria("id", QCriteriaOperator.IN, okWorkflowLogIds)))
-            .withLinkText("Created " + String.format("%,d", okWorkflowLogIds.size()) + " Successful Workflow Log" + StringUtils.plural(okWorkflowLogIds)));
+            .withLinkText("Created " + String.format("%,d", okWorkflowLogIds.size()) + " Successful Workflow Run Log" + StringUtils.plural(okWorkflowLogIds)));
       }
 
       if(CollectionUtils.nullSafeHasContents(errorWorkflowLogIds))
       {
          summary.add(new ProcessSummaryFilterLink(Status.ERROR, WorkflowRunLog.TABLE_NAME, new QQueryFilter(new QFilterCriteria("id", QCriteriaOperator.IN, errorWorkflowLogIds)))
-            .withLinkText("Created " + String.format("%,d", errorWorkflowLogIds.size()) + " Workflow Log" + StringUtils.plural(errorWorkflowLogIds) + " with Errors"));
+            .withLinkText("Created " + String.format("%,d", errorWorkflowLogIds.size()) + " Workflow Run Log" + StringUtils.plural(errorWorkflowLogIds) + " with Errors"));
       }
 
       unloggedExceptionLine.addSelfToListIfAnyCount(summary);

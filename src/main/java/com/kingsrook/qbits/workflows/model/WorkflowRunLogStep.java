@@ -33,6 +33,7 @@ import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.data.QRecordEntity;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.ValueTooLongBehavior;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QIcon;
 import com.kingsrook.qqq.backend.core.model.metadata.producers.MetaDataCustomizerInterface;
@@ -71,8 +72,13 @@ public class WorkflowRunLogStep extends QRecordEntity implements Serializable
             .withRecordLabelFormat("Step - %s (%s)")
             .withRecordLabelFields("seqNo", "workflowRunLogId")
             .withSection(SectionFactory.defaultT1("id", "workflowRunLogId", "seqNo"))
-            .withSection(SectionFactory.defaultT2("workflowStepId", "inputDataJson", "outputDataJson"))
+            .withSection(SectionFactory.defaultT2("workflowStepId", "message", "outputData"))
             .withSection(SectionFactory.defaultT3("startTimestamp", "endTimestamp"));
+
+         table.getField("id").withFieldAdornment(AdornmentType.Size.SMALL.toAdornment());
+         table.getField("seqNo").withFieldAdornment(AdornmentType.Size.XSMALL.toAdornment());
+         table.getField("workflowStepId").withFieldAdornment(AdornmentType.Size.LARGE.toAdornment());
+         table.getField("message").withFieldAdornment(AdornmentType.Size.LARGE.toAdornment());
 
          return (table);
       }
@@ -111,11 +117,11 @@ public class WorkflowRunLogStep extends QRecordEntity implements Serializable
    @QField()
    private Integer seqNo;
 
-   @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS, label = "Input Data")
-   private String inputDataJson;
+   @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
+   private String outputData;
 
-   @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS, label = "Output Data")
-   private String outputDataJson;
+   @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
+   private String message;
 
    @QField(isEditable = false)
    private Instant startTimestamp;
@@ -269,62 +275,31 @@ public class WorkflowRunLogStep extends QRecordEntity implements Serializable
 
 
    /*******************************************************************************
-    ** Getter for inputDataJson
+    ** Getter for outputData
     *******************************************************************************/
-   public String getInputDataJson()
+   public String getOutputData()
    {
-      return (this.inputDataJson);
+      return (this.outputData);
    }
 
 
 
    /*******************************************************************************
-    ** Setter for inputDataJson
+    ** Setter for outputData
     *******************************************************************************/
-   public void setInputDataJson(String inputDataJson)
+   public void setOutputData(String outputData)
    {
-      this.inputDataJson = inputDataJson;
+      this.outputData = outputData;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for inputDataJson
+    ** Fluent setter for outputData
     *******************************************************************************/
-   public WorkflowRunLogStep withInputDataJson(String inputDataJson)
+   public WorkflowRunLogStep withOutputData(String outputData)
    {
-      this.inputDataJson = inputDataJson;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for outputDataJson
-    *******************************************************************************/
-   public String getOutputDataJson()
-   {
-      return (this.outputDataJson);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for outputDataJson
-    *******************************************************************************/
-   public void setOutputDataJson(String outputDataJson)
-   {
-      this.outputDataJson = outputDataJson;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for outputDataJson
-    *******************************************************************************/
-   public WorkflowRunLogStep withOutputDataJson(String outputDataJson)
-   {
-      this.outputDataJson = outputDataJson;
+      this.outputData = outputData;
       return (this);
    }
 
@@ -387,6 +362,37 @@ public class WorkflowRunLogStep extends QRecordEntity implements Serializable
    public WorkflowRunLogStep withEndTimestamp(Instant endTimestamp)
    {
       this.endTimestamp = endTimestamp;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    ** Getter for message
+    *******************************************************************************/
+   public String getMessage()
+   {
+      return (this.message);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for message
+    *******************************************************************************/
+   public void setMessage(String message)
+   {
+      this.message = message;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for message
+    *******************************************************************************/
+   public WorkflowRunLogStep withMessage(String message)
+   {
+      this.message = message;
       return (this);
    }
 

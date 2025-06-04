@@ -94,7 +94,10 @@ public class WorkflowStep extends QRecordEntity
    @QField(maxLength = 500, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
    private String description;
 
-   @QField()
+   //////////////////////////////////////////////
+   // mediumtext type, so no max-length needed //
+   //////////////////////////////////////////////
+   @QField(label = "Input Values")
    private String inputValuesJson;
 
 

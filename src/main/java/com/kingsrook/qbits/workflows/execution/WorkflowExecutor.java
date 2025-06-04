@@ -51,6 +51,7 @@ import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import com.kingsrook.qqq.backend.core.utils.ListingHash;
+import com.kingsrook.qqq.backend.core.utils.StringUtils;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 import org.json.JSONObject;
 import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
@@ -145,10 +146,11 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
             workflowRunLogStep.setStartTimestamp(Instant.now());
             logStepList.add(workflowRunLogStep);
 
-            Serializable stepOutput = executeStep(step, workflowTypeExecutor, context);
-            workflowRunLogStep.setOutputDataJson(ValueUtils.getValueAsString(stepOutput)); // todo json??
+            WorkflowStepOutput workflowStepOutput = executeStep(step, workflowTypeExecutor, context);
+            workflowRunLogStep.setOutputData(ValueUtils.getValueAsString(workflowStepOutput.outputData()));
+            workflowRunLogStep.setMessage(workflowStepOutput.message());
 
-            stepNo = getNextStepNo(stepOutput, stepNo, linkMap);
+            stepNo = getNextStepNo(workflowStepOutput.outputData(), stepNo, linkMap);
 
             workflowRunLogStep.setEndTimestamp(Instant.now());
             seqNo++;
@@ -182,6 +184,14 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
 
          workflowOutput.setException(e);
          workflowRunLog.setHadError(true);
+
+         ////////////////////////////////////////////////////////////////////////////////////////////////////////
+         // the executor may have set an error message in the run log - but if not, set one from the exception //
+         ////////////////////////////////////////////////////////////////////////////////////////////////////////
+         if(!StringUtils.hasContent(workflowRunLog.getErrorMessage()))
+         {
+            workflowRunLog.setErrorMessage(e.getMessage());
+         }
       }
       finally
       {
@@ -277,7 +287,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
    /***************************************************************************
     **
     ***************************************************************************/
-   private Serializable executeStep(WorkflowStep step, WorkflowTypeExecutorInterface workflowTypeExecutor, WorkflowExecutionContext context) throws QException
+   private WorkflowStepOutput executeStep(WorkflowStep step, WorkflowTypeExecutorInterface workflowTypeExecutor, WorkflowExecutionContext context) throws QException
    {
       WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(step.getWorkflowStepTypeName());
       if(workflowStepType == null)
@@ -301,10 +311,10 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          }
       }
 
-      Serializable stepOutput = workflowStepExecutor.execute(step, inputValues, context);
-      stepOutput = workflowTypeExecutor.postStep(step, context, stepOutput);
+      WorkflowStepOutput workflowStepOutput = workflowStepExecutor.execute(step, inputValues, context);
+      workflowStepOutput = workflowTypeExecutor.postStep(step, context, workflowStepOutput);
 
-      return stepOutput;
+      return workflowStepOutput;
    }
 
 

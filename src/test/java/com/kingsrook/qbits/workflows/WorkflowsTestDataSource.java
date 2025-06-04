@@ -25,9 +25,7 @@ package com.kingsrook.qbits.workflows;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import com.kingsrook.qbits.workflows.implementations.recordworkflows.InputRecordFilterStep;
 import com.kingsrook.qbits.workflows.implementations.recordworkflows.RecordWorkflowsDefinitionProducer;
-import com.kingsrook.qbits.workflows.implementations.recordworkflows.UpdateInputRecordFieldStep;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowLink;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
@@ -132,13 +130,23 @@ public class WorkflowsTestDataSource
 
 
    /***************************************************************************
-    **
+    *
     ***************************************************************************/
-   public static Integer insertTestRecordWorkflow() throws QException
+   public static Workflow insertWorkflowAndInitialRevision(String workflowTypeName, String tableName) throws QException
+   {
+      return insertWorkflowAndInitialRevision(workflowTypeName, tableName, null, null);
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   public static Workflow insertWorkflowAndInitialRevision(String workflowTypeName, String tableName, String apiName, String apiVersion) throws QException
    {
       QRecord workflow = new InsertAction().execute(new InsertInput(Workflow.TABLE_NAME).withRecordEntity(new Workflow()
          .withWorkflowTypeName(RecordWorkflowsDefinitionProducer.WORKFLOW_TYPE)
-         .withTableName(Workflow.TABLE_NAME)
+         .withTableName(tableName)
          .withName("test-" + UUID.randomUUID())
       )).getRecords().get(0);
       Integer workflowId = workflow.getValueInteger("id");
@@ -146,6 +154,8 @@ public class WorkflowsTestDataSource
       QRecord workflowRevision = new InsertAction().execute(new InsertInput(WorkflowRevision.TABLE_NAME).withRecordEntity(new WorkflowRevision()
          .withWorkflowId(workflowId)
          .withStartStepNo(1)
+         .withApiName(apiName)
+         .withApiVersion(apiVersion)
       )).getRecords().get(0);
       Integer revisionId = workflowRevision.getValueInteger("id");
 
@@ -154,34 +164,7 @@ public class WorkflowsTestDataSource
          .withValue("currentWorkflowRevisionId", revisionId)
       ));
 
-      new InsertAction().execute(new InsertInput(WorkflowStep.TABLE_NAME).withRecordEntities(List.of(
-         new WorkflowStep()
-            .withWorkflowRevisionId(revisionId)
-            .withStepNo(1)
-            .withInputValuesJson(JsonUtils.toJson(Map.of("queryFilterJson", new QQueryFilter(new QFilterCriteria("name", QCriteriaOperator.STARTS_WITH, "test")))))
-            .withWorkflowStepTypeName(InputRecordFilterStep.NAME),
-         new WorkflowStep()
-            .withWorkflowRevisionId(revisionId)
-            .withStepNo(2)
-            .withInputValuesJson(JsonUtils.toJson(Map.of("fieldName", "name", "value", UUID.randomUUID().toString())))
-            .withWorkflowStepTypeName(UpdateInputRecordFieldStep.NAME),
-         new WorkflowStep()
-            .withWorkflowRevisionId(revisionId)
-            .withStepNo(3)
-            .withInputValuesJson(JsonUtils.toJson(Map.of("fieldName", "name", "value", "test-" + UUID.randomUUID())))
-            .withWorkflowStepTypeName(UpdateInputRecordFieldStep.NAME)
-      )));
-
-      new InsertAction().execute(new InsertInput(WorkflowLink.TABLE_NAME).withRecordEntities(List.of(
-         new WorkflowLink().withWorkflowRevisionId(revisionId)
-            .withFromStepNo(1).withToStepNo(2)
-            .withConditionValue("true"),
-         new WorkflowLink().withWorkflowRevisionId(revisionId)
-            .withFromStepNo(1).withToStepNo(3)
-            .withConditionValue("false")
-      )));
-
-      return (workflowId);
+      return new Workflow(workflow).withCurrentWorkflowRevisionId(revisionId);
    }
 
 }

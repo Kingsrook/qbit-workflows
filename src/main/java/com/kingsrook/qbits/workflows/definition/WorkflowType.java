@@ -24,7 +24,9 @@ package com.kingsrook.qbits.workflows.definition;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import com.google.gson.reflect.TypeToken;
 import com.kingsrook.qbits.workflows.execution.WorkflowTypeExecutorInterface;
 import com.kingsrook.qqq.backend.core.actions.customizers.QCodeLoader;
@@ -241,5 +243,16 @@ public class WorkflowType implements Serializable
    public WorkflowType customizeBasedOnWorkflow(QRecord workflowRecord)
    {
       return (this);
+   }
+
+
+
+   /***************************************************************************
+    ** a method you can override as a way to send additional values to the frontend
+    ** in the GetWorkflowTypeDefinitionProcess.  e.g., default apiName and apiVersion.
+    ***************************************************************************/
+   public Map<String, Serializable> getAdditionalDefinitionValues(QRecord workflowRecord)
+   {
+      return Collections.emptyMap();
    }
 }

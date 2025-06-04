@@ -29,6 +29,7 @@ import com.kingsrook.qbits.workflows.definition.WorkflowType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qbits.workflows.execution.WorkflowExecutionContext;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepExecutorInterface;
+import com.kingsrook.qbits.workflows.execution.WorkflowStepOutput;
 import com.kingsrook.qbits.workflows.execution.WorkflowTypeExecutorInterface;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
@@ -127,12 +128,12 @@ public class TestWorkflowDefinitions
        **
        ***************************************************************************/
       @Override
-      public Serializable postStep(WorkflowStep step, WorkflowExecutionContext context, Serializable stepOutput)
+      public WorkflowStepOutput postStep(WorkflowStep step, WorkflowExecutionContext context, WorkflowStepOutput stepOutput)
       {
          Serializable overrideReturnValueInPostStep = context.getValues().get("overrideReturnValueInPostStep");
          if(overrideReturnValueInPostStep != null)
          {
-            return (overrideReturnValueInPostStep);
+            return (new WorkflowStepOutput(overrideReturnValueInPostStep, stepOutput.message()));
          }
 
          return stepOutput;
@@ -150,7 +151,7 @@ public class TestWorkflowDefinitions
        **
        ***************************************************************************/
       @Override
-      public Serializable execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context)
+      public WorkflowStepOutput execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context)
       {
          Integer sum = ValueUtils.getValueAsInteger(context.getValues().getOrDefault("sum", 0));
          Integer x   = ValueUtils.getValueAsInteger(inputValues.getOrDefault("x", 0));
@@ -158,7 +159,7 @@ public class TestWorkflowDefinitions
          Integer newSum = sum + x;
          context.getValues().put("sum", newSum);
 
-         return (newSum);
+         return (new WorkflowStepOutput(newSum, "Added %d and %d to make %d".formatted(sum, x, newSum)));
       }
    }
 
@@ -173,7 +174,7 @@ public class TestWorkflowDefinitions
        **
        ***************************************************************************/
       @Override
-      public Serializable execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context)
+      public WorkflowStepOutput execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context)
       {
          /* ??
          Map<String, Object> inputValues = getInputValues(step);
@@ -184,7 +185,7 @@ public class TestWorkflowDefinitions
          */
 
          Boolean condition = ValueUtils.getValueAsBoolean(context.getValues().getOrDefault("condition", false));
-         return (condition);
+         return (new WorkflowStepOutput(condition));
       }
    }
 

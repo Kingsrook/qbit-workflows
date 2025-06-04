@@ -99,7 +99,8 @@ public class WorkflowRunLog extends QRecordEntity implements Serializable
             .withRecordLabelFields("id", "workflowRevisionId")
             .withSection(SectionFactory.defaultT1("id", "workflowId", "workflowRevisionId"))
             .withSection(SectionFactory.customT2("workflowRunLogViewerWidget", new QIcon("account_tree")).withLabel("Workflow Steps").withWidgetName(WorkflowRunLogViewerWidget.NAME))
-            .withSection(SectionFactory.defaultT2("inputRecordQqqTableId", "inputRecordId", "inputDataJson", "hadError"))
+            .withSection(SectionFactory.defaultT2("inputRecordQqqTableId", "inputRecordId", "inputDataJson").withName("input").withGridColumns(6))
+            .withSection(SectionFactory.defaultT2("hadError", "errorMessage").withName("output").withGridColumns(6))
             .withSection(SectionFactory.customT2("steps", new QIcon("polyline")).withWidgetName(childJoinName))
             .withSection(SectionFactory.defaultT3("startTimestamp", "endTimestamp")).
             withAssociation(new Association().withName(STEPS_ASSOCIATION_NAME).withJoinName(childJoinName).withAssociatedTableName(WorkflowRunLogStep.TABLE_NAME));
@@ -150,6 +151,9 @@ public class WorkflowRunLog extends QRecordEntity implements Serializable
 
    @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
    private String inputDataJson;
+
+   @QField(maxLength = 250, valueTooLongBehavior = ValueTooLongBehavior.TRUNCATE_ELLIPSIS)
+   private String errorMessage;
 
    @QField(label = "Input Record Table", possibleValueSourceName = QQQTable.TABLE_NAME)
    private Integer inputRecordQqqTableId;
@@ -434,6 +438,7 @@ public class WorkflowRunLog extends QRecordEntity implements Serializable
    }
 
 
+
    /*******************************************************************************
     ** Getter for inputRecordQqqTableId
     *******************************************************************************/
@@ -494,5 +499,35 @@ public class WorkflowRunLog extends QRecordEntity implements Serializable
       return (this);
    }
 
+
+
+   /*******************************************************************************
+    ** Getter for errorMessage
+    *******************************************************************************/
+   public String getErrorMessage()
+   {
+      return (this.errorMessage);
+   }
+
+
+
+   /*******************************************************************************
+    ** Setter for errorMessage
+    *******************************************************************************/
+   public void setErrorMessage(String errorMessage)
+   {
+      this.errorMessage = errorMessage;
+   }
+
+
+
+   /*******************************************************************************
+    ** Fluent setter for errorMessage
+    *******************************************************************************/
+   public WorkflowRunLog withErrorMessage(String errorMessage)
+   {
+      this.errorMessage = errorMessage;
+      return (this);
+   }
 
 }

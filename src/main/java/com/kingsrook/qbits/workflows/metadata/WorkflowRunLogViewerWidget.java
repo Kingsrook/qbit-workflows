@@ -78,7 +78,7 @@ public class WorkflowRunLogViewerWidget extends BaseQSequentialWorkflowWidgetRen
       QRecord              workflowRunLog      = GetAction.execute(WorkflowRunLog.TABLE_NAME, workflowRunLogId);
       List<QRecord>        workflowRunLogSteps = QueryAction.execute(WorkflowRunLogStep.TABLE_NAME, new QQueryFilter(new QFilterCriteria("workflowRunLogId", QCriteriaOperator.EQUALS, workflowRunLogId)));
       List<Integer>        executedStepIds     = workflowRunLogSteps.stream().map(wrls -> wrls.getValueInteger("workflowStepId")).toList();
-      Map<Integer, String> stepOutputMap       = CollectionUtils.listToMap(workflowRunLogSteps, e -> e.getValueInteger("workflowStepId"), e -> e.getValueString("outputDataJson"));
+      Map<Integer, String> stepOutputMap       = CollectionUtils.listToMap(workflowRunLogSteps, e -> e.getValueInteger("workflowStepId"), e -> e.getValueString("outputData"));
 
       return new OutputData()
       {
