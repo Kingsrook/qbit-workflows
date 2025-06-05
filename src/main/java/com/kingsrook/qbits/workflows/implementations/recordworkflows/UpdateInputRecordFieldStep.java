@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import com.kingsrook.qbits.workflows.definition.OutboundLinkMode;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
@@ -37,7 +38,10 @@ import com.kingsrook.qbits.workflows.implementations.WorkflowStepUtils;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
+import com.kingsrook.qqq.api.actions.GetTableApiFieldsAction;
 import com.kingsrook.qqq.api.actions.QRecordApiAdapter;
+import com.kingsrook.qqq.api.model.actions.GetTableApiFieldsInput;
+import com.kingsrook.qqq.api.model.actions.GetTableApiFieldsOutput;
 import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
 import com.kingsrook.qqq.backend.core.actions.tables.UpdateAction;
 import com.kingsrook.qqq.backend.core.actions.values.QValueFormatter;
@@ -121,40 +125,49 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
       @Override
       public FormAdjusterOutput execute(FormAdjusterInput input) throws QException
       {
+         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+         // get the new value for the 'fieldName' field - which will tell us what meta-data we need to set for the 'value' field //
+         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
          String newValue = ValueUtils.getValueAsString(input.getNewValue());
 
+         //////////////////////////////////////////////
+         // start building the updated 'value' field //
+         //////////////////////////////////////////////
          QFieldMetaData updatedField = new QFieldMetaData("value", QFieldType.STRING)
             .withLabel("Value")
             .withIsEditable(false);
 
-         String tableName          = null;
-         String workflowValuesJSON = ValueUtils.getValueAsString(CollectionUtils.nonNullMap(input.getAllValues()).get("workflowValuesJSON"));
-         if(StringUtils.hasContent(workflowValuesJSON))
-         {
-            JSONObject workflowValuesJSONObject = new JSONObject(workflowValuesJSON);
-            if(workflowValuesJSONObject.has("tableName"))
-            {
-               tableName = workflowValuesJSONObject.getString("tableName");
-            }
-         }
+         String tableName = getTableNameForWorkflow(input);
 
-         if(tableName == null)
-         {
-            throw (new QException("Could not get table name from input"));
-         }
-
+         ////////////////////////////////////////////////////////////////////////////////////////////////
+         // if there is a new value (e.g., a selection has been made for fieldName), look up the field //
+         ////////////////////////////////////////////////////////////////////////////////////////////////
          if(StringUtils.hasContent(newValue))
          {
             try
             {
-               QTableMetaData    table             = QContext.getQInstance().getTable(tableName);
-               FieldAndJoinTable fieldAndJoinTable = FieldAndJoinTable.get(table, newValue);
-
-               if(fieldAndJoinTable != null)
+               WorkflowRevision workflowRevision = buildWorkflowRevisionFromInputJSONValues(input.getAllValues().get("workflowRevisionValuesJSON"));
+               if(workflowRevision != null && WorkflowStepUtils.useApi(workflowRevision))
                {
-                  updatedField = fieldAndJoinTable.field().clone();
-                  updatedField.setName("value");
-                  updatedField.setLabel("Value (" + fieldAndJoinTable.field().getLabel() + ")");
+                  Optional<QFieldMetaData> foundField = getApiField(newValue, tableName, workflowRevision);
+                  if(foundField.isPresent())
+                  {
+                     updatedField = foundField.get().clone();
+                     updatedField.setName("value");
+                     updatedField.setLabel("Value (" + foundField.get().getLabel() + ")");
+                  }
+               }
+               else
+               {
+                  QTableMetaData    table             = QContext.getQInstance().getTable(tableName);
+                  FieldAndJoinTable fieldAndJoinTable = FieldAndJoinTable.get(table, newValue);
+
+                  if(fieldAndJoinTable != null)
+                  {
+                     updatedField = fieldAndJoinTable.field().clone();
+                     updatedField.setName("value");
+                     updatedField.setLabel("Value (" + fieldAndJoinTable.field().getLabel() + ")");
+                  }
                }
             }
             catch(Exception e)
@@ -163,23 +176,29 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
             }
          }
 
-         updatedField.setGridColumns(12);
-
+         ///////////////////////////////////////////////////////////////////////////////////
+         // build the output object, starting with the new meta-data of the 'value' field //
+         ///////////////////////////////////////////////////////////////////////////////////
          FormAdjusterOutput output = new FormAdjusterOutput();
-         output.setUpdatedFieldMetaData(Map.of("value", new QFrontendFieldMetaData(updatedField)));
+         output.setUpdatedFieldMetaData(Map.of("value", new QFrontendFieldMetaData(updatedField
+            /////////////////////////////////////////////////////////////////////////////////////////////////
+            // set attributes on the field that are needed regardless of whether we found the field or not //
+            /////////////////////////////////////////////////////////////////////////////////////////////////
+            .withGridColumns(12)
+         )));
 
-         ////////////////////////////////////////////////////////
-         // on-change clear out the value in the 'value' field //
-         ////////////////////////////////////////////////////////
          if(RunFormAdjusterProcess.EVENT_ON_CHANGE.equals(input.getEvent()))
          {
+            /////////////////////////////////////////////////////////////////////
+            // for an on-change event clear out the value in the 'value' field //
+            /////////////////////////////////////////////////////////////////////
             output.setFieldsToClear(Set.of("value"));
          }
-         else
+         else if(RunFormAdjusterProcess.EVENT_ON_LOAD.equals(input.getEvent()))
          {
-            ////////////////////////////////////////////////////////////
-            // on-load, for PVS fields, look up the value for display //
-            ////////////////////////////////////////////////////////////
+            /////////////////////////////////////////////////////////////////////////
+            // for an on-load event, for PVS fields, look up the value for display //
+            /////////////////////////////////////////////////////////////////////////
             Object oldValueObject = Objects.requireNonNullElse(input.getAllValues(), Collections.emptyMap()).get("value");
             if(StringUtils.hasContent(updatedField.getPossibleValueSourceName()) && oldValueObject instanceof Serializable oldValue)
             {
@@ -197,6 +216,78 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
 
          return output;
       }
+
+
+
+      /***************************************************************************
+       **
+       ***************************************************************************/
+      private WorkflowRevision buildWorkflowRevisionFromInputJSONValues(Serializable workflowRevisionValuesJSON)
+      {
+         try
+         {
+            JSONObject       jsonObject       = new JSONObject(ValueUtils.getValueAsString(workflowRevisionValuesJSON));
+            WorkflowRevision workflowRevision = new WorkflowRevision();
+
+            if(jsonObject.has("apiName"))
+            {
+               workflowRevision.setApiName(jsonObject.getString("apiName"));
+            }
+
+            if(jsonObject.has("apiVersion"))
+            {
+               workflowRevision.setApiVersion(jsonObject.getString("apiVersion"));
+            }
+
+            return (workflowRevision);
+         }
+         catch(Exception e)
+         {
+            LOG.warn("Error building workflow revision from inputValuesJSON", e);
+         }
+         return null;
+      }
+
+
+
+      /***************************************************************************
+       **
+       ***************************************************************************/
+      private static String getTableNameForWorkflow(FormAdjusterInput input) throws QException
+      {
+         String tableName          = null;
+         String workflowValuesJSON = ValueUtils.getValueAsString(CollectionUtils.nonNullMap(input.getAllValues()).get("workflowValuesJSON"));
+         if(StringUtils.hasContent(workflowValuesJSON))
+         {
+            JSONObject workflowValuesJSONObject = new JSONObject(workflowValuesJSON);
+            if(workflowValuesJSONObject.has("tableName"))
+            {
+               tableName = workflowValuesJSONObject.getString("tableName");
+            }
+         }
+
+         if(tableName == null)
+         {
+            throw (new QException("Could not get table name from input"));
+         }
+         return tableName;
+      }
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   private static Optional<QFieldMetaData> getApiField(String fieldNameMaybeWithTableNamePrefix, String tableName, WorkflowRevision workflowRevision) throws QException
+   {
+      String fieldName = (fieldNameMaybeWithTableNamePrefix.contains(".") ? fieldNameMaybeWithTableNamePrefix.substring(fieldNameMaybeWithTableNamePrefix.indexOf(".") + 1) : fieldNameMaybeWithTableNamePrefix);
+      GetTableApiFieldsOutput tableApiFieldsOutput = new GetTableApiFieldsAction().execute(new GetTableApiFieldsInput()
+         .withTableName(tableName)
+         .withApiName(workflowRevision.getApiName())
+         .withVersion(workflowRevision.getApiVersion()));
+      Optional<QFieldMetaData> foundField = tableApiFieldsOutput.getFields().stream().filter(f -> fieldName.equals(f.getName())).findFirst();
+      return foundField;
    }
 
 
@@ -210,7 +301,19 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
       String fieldName = values.optString("fieldName", null);
       String value     = values.optString("value", null);
 
-      return getStepSummary(workflowId, fieldName, value, false);
+      String apiName = null;
+      String apiVersion = null;
+      if(values.has("workflowRevision"))
+      {
+         Object o = values.get("workflowRevision");
+         if(o instanceof JSONObject jsonObject)
+         {
+            apiName = jsonObject.optString("apiName");
+            apiVersion = jsonObject.optString("apiVersion");
+         }
+      }
+
+      return getStepSummary(workflowId, fieldName, apiName, apiVersion, value, false);
    }
 
 
@@ -218,7 +321,7 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
    /***************************************************************************
     **
     ***************************************************************************/
-   private String getStepSummary(Integer workflowId, String fieldName, String value, boolean isPastTense)
+   private String getStepSummary(Integer workflowId, String fieldName, String apiName, String apiVersion, String value, boolean isPastTense)
    {
       String         fieldLabel = null;
       QTableMetaData table      = null;
@@ -231,9 +334,23 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
             {
                QRecord workflowRecord = GetAction.execute(Workflow.TABLE_NAME, workflowId);
                table = QContext.getQInstance().getTable(workflowRecord.getValueString("tableName"));
-               FieldAndJoinTable fieldAndJoinTable = FieldAndJoinTable.get(table, fieldName);
-               fieldName = fieldAndJoinTable.field().getName();
-               fieldLabel = fieldAndJoinTable.field().getLabel();
+
+               WorkflowRevision workflowRevision = new WorkflowRevision().withApiName(apiName).withApiVersion(apiVersion);
+               if(WorkflowStepUtils.useApi(workflowRevision))
+               {
+                  Optional<QFieldMetaData> optionalApiField = getApiField(fieldName, table.getName(), workflowRevision);
+                  if(optionalApiField.isPresent())
+                  {
+                     // fieldName = optionalApiField.field().getName(); // hmm?
+                     fieldLabel = optionalApiField.get().getLabel();
+                  }
+               }
+               else
+               {
+                  FieldAndJoinTable fieldAndJoinTable = FieldAndJoinTable.get(table, fieldName);
+                  fieldName = fieldAndJoinTable.field().getName();
+                  fieldLabel = fieldAndJoinTable.field().getLabel();
+               }
             }
          }
          catch(Exception e)
@@ -383,7 +500,7 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
          QRecord updatedRecord = GetAction.execute(tableName, originalRecord.getValue(table.getPrimaryKeyField()));
          RecordWorkflowUtils.updateRecordInContext(context, updatedRecord);
 
-         String stepSummary = getStepSummary(context.getWorkflow().getId(), fieldName, value, true);
+         String stepSummary = getStepSummary(context.getWorkflow().getId(), context.getWorkflowRevision().getApiName(), context.getWorkflowRevision().getApiVersion(), fieldName, value, true);
          return new WorkflowStepOutput(value, stepSummary);
       }
    }
@@ -399,7 +516,7 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
       for(RecordSecurityLock recordSecurityLock : CollectionUtils.nonNullList(QContext.getQInstance().getTable(originalRecord.getTableName()).getRecordSecurityLocks()))
       {
          String securityFieldName = recordSecurityLock.getFieldName();
-         recordToUpdate.setValue(securityFieldName, recordToUpdate.getValue(securityFieldName));
+         recordToUpdate.setValue(securityFieldName, originalRecord.getValue(securityFieldName));
       }
    }
 

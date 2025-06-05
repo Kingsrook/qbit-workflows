@@ -38,7 +38,10 @@ public class WorkflowStepUtils
     ***************************************************************************/
    public static boolean useApi(WorkflowRevision workflowRevision)
    {
-      return(WorkflowsQBitConfig.getApiMiddlewareModuleAvailable() && StringUtils.hasContent(workflowRevision.getApiName()) && StringUtils.hasContent(workflowRevision.getApiVersion()));
+      return (WorkflowsQBitConfig.getApiMiddlewareModuleAvailable()
+         && workflowRevision != null
+         && StringUtils.hasContent(workflowRevision.getApiName())
+         && StringUtils.hasContent(workflowRevision.getApiVersion()));
    }
 
 }
