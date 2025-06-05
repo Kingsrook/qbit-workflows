@@ -119,7 +119,7 @@ class RunRecordWorkflowProcessTest extends BaseTest
       {
          WorkflowRunLog workflowRunLog = runProcessAssertingNoExceptionReturningRunLogs(Workflow.TABLE_NAME, workflowId, workflowId);
          assertThat(workflowRunLog.getSteps().stream().map(wrls -> wrls.getOutputData())).anyMatch(s -> s.equals("true"));
-         assertThat(workflowRunLog.getSteps().stream().map(wrls -> wrls.getMessage()).filter(Objects::nonNull)).noneMatch(s -> s.startsWith("Name was set to test-"));
+         assertThat(workflowRunLog.getSteps().stream().map(wrls -> wrls.getMessage()).filter(Objects::nonNull)).noneMatch(s -> s.startsWith("Name was set to 'test-"));
 
          workflowRunLog = runProcessAssertingNoExceptionReturningRunLogs(Workflow.TABLE_NAME, workflowId, workflowId);
          assertThat(workflowRunLog.getSteps().stream().map(wrls -> wrls.getOutputData())).anyMatch(s -> s.equals("false"));

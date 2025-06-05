@@ -500,7 +500,7 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
          QRecord updatedRecord = GetAction.execute(tableName, originalRecord.getValue(table.getPrimaryKeyField()));
          RecordWorkflowUtils.updateRecordInContext(context, updatedRecord);
 
-         String stepSummary = getStepSummary(context.getWorkflow().getId(), context.getWorkflowRevision().getApiName(), context.getWorkflowRevision().getApiVersion(), fieldName, value, true);
+         String stepSummary = getStepSummary(context.getWorkflow().getId(), fieldName, context.getWorkflowRevision().getApiName(), context.getWorkflowRevision().getApiVersion(), value, true);
          return new WorkflowStepOutput(value, stepSummary);
       }
    }
