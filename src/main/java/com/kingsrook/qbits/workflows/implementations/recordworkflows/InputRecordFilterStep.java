@@ -157,7 +157,7 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
       CountInput countInput = new CountInput(context.getWorkflow().getTableName())
          .withTransaction(context.getTransaction());
 
-      ApiQueryFilterUtils.manageCriteriaFields(inputFilter, tableApiFields, badRequestMessages, workflowRevision.getApiName(), countInput);
+      ApiQueryFilterUtils.manageCriteriaFields(inputFilter, tableApiFields, badRequestMessages, workflowRevision.getApiName(), workflowRevision.getApiVersion(), countInput);
 
       QQueryFilter actualFilter = new QQueryFilter()
          .withCriteria(idEqualsCriteria)
