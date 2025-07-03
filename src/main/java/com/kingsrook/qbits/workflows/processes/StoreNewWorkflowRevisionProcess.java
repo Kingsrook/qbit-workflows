@@ -24,6 +24,7 @@ package com.kingsrook.qbits.workflows.processes;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
@@ -63,11 +64,11 @@ import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QBackendStepMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QFunctionInputMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
+import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import com.kingsrook.qqq.backend.core.utils.ObjectUtils;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
-import org.json.JSONObject;
 import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
@@ -180,7 +181,12 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
          Integer      insertedRevisionId       = insertedWorkflowRevision.getValueInteger("id");
          if(insertedRevisionId == null)
          {
-            throw (new QUserFacingException("Error inserting new workflow revision"));
+            String message = "Error inserting new workflow revision";
+            if(CollectionUtils.nullSafeHasContents(insertedWorkflowRevision.getErrors()))
+            {
+               message += ": " + insertedWorkflowRevision.getErrorsAsString();
+            }
+            throw (new QUserFacingException(message));
          }
 
          /////////////////////////////////////////////////////////////////////////
@@ -193,8 +199,8 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
 
             try
             {
-               WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(step.getWorkflowStepTypeName());
-               JSONObject       values           = new JSONObject(step.getInputValuesJson());
+               WorkflowStepType          workflowStepType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowStepType(step.getWorkflowStepTypeName());
+               Map<String, Serializable> values           = ValueUtils.getValueAsMap(step.getInputValuesJson());
                step.setSummary(workflowStepType.getDynamicStepSummary(workflowId, values));
             }
             catch(Exception e)
