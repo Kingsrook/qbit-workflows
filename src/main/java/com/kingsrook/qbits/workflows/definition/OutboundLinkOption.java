@@ -22,6 +22,9 @@
 package com.kingsrook.qbits.workflows.definition;
 
 
+import java.util.List;
+
+
 /*******************************************************************************
  ** for a stepType with more than one outbound links, e.g., with conditional guards
  ** on them, an instance of this class describes one such link (e.g., "true" labeled
@@ -31,6 +34,8 @@ public class OutboundLinkOption
 {
    private String value;
    private String label;
+
+   private List<String> stepTypesToIncludeByDefault;
 
 
 
@@ -93,5 +98,45 @@ public class OutboundLinkOption
       this.label = label;
       return (this);
    }
+
+
+   /*******************************************************************************
+    * Getter for stepTypesToIncludeByDefault
+    * @see #withStepTypesToIncludeByDefault(List)
+    *******************************************************************************/
+   public List<String> getStepTypesToIncludeByDefault()
+   {
+      return (this.stepTypesToIncludeByDefault);
+   }
+
+
+
+   /*******************************************************************************
+    * Setter for stepTypesToIncludeByDefault
+    * @see #withStepTypesToIncludeByDefault(List)
+    *******************************************************************************/
+   public void setStepTypesToIncludeByDefault(List<String> stepTypesToIncludeByDefault)
+   {
+      this.stepTypesToIncludeByDefault = stepTypesToIncludeByDefault;
+   }
+
+
+
+   /*******************************************************************************
+    * Fluent setter for stepTypesToIncludeByDefault
+    *
+    * @param stepTypesToIncludeByDefault for the use-case where, you want to have a
+    * step type, that when you add it to a workflow, it implicitly contains some
+    * sub-steps within one of its outbound links.  e.g., an on-failure branch that
+    * calls some exception handling step.  Put the names of the step types to include
+    * in this list.  Leave null to omit this behavior.
+    * @return this
+    *******************************************************************************/
+   public OutboundLinkOption withStepTypesToIncludeByDefault(List<String> stepTypesToIncludeByDefault)
+   {
+      this.stepTypesToIncludeByDefault = stepTypesToIncludeByDefault;
+      return (this);
+   }
+
 
 }
