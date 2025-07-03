@@ -34,6 +34,7 @@ import com.kingsrook.qbits.workflows.execution.WorkflowTypeExecutorInterface;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
@@ -55,19 +56,19 @@ public class TestWorkflowDefinitions
     ***************************************************************************/
    public static void registerTestWorkflowTypes() throws QException
    {
-      WorkflowsRegistry.getInstance().registerWorkflowType(new WorkflowType()
+      WorkflowsRegistry.of(QContext.getQInstance()).registerWorkflowType(new WorkflowType()
          .withName(TEST_WORKFLOW_TYPE)
          .withLabel("Test Workflow Type")
          .withExecutor(new QCodeReference(TestWorkflowTypeExecutor.class))
          .withDescription("This is a test workflow type."));
 
-      WorkflowsRegistry.getInstance().registerWorkflowStepType(new WorkflowStepType()
+      WorkflowsRegistry.of(QContext.getQInstance()).registerWorkflowStepType(new WorkflowStepType()
          .withName(ADD_X_TO_SUM_ACTION)
          .withLabel("Add X to Sum")
          .withExecutor(new QCodeReference(AddXToSumStepExecutor.class))
          .withDescription("Add int in `x` to int in `sum`"));
 
-      WorkflowsRegistry.getInstance().registerWorkflowStepType(new WorkflowStepType()
+      WorkflowsRegistry.of(QContext.getQInstance()).registerWorkflowStepType(new WorkflowStepType()
          .withName(BOOLEAN_CONDITIONAL)
          .withLabel("Boolean Conditional")
          .withExecutor(new QCodeReference(BooleanConditionalExecutor.class))

@@ -25,7 +25,7 @@ package com.kingsrook.qbits.workflows;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import com.kingsrook.qbits.workflows.implementations.recordworkflows.RecordWorkflowsDefinitionProducer;
+import com.kingsrook.qbits.workflows.implementations.recordworkflows.RecordWorkflowsDefinition;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowLink;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
@@ -145,7 +145,7 @@ public class WorkflowsTestDataSource
    public static Workflow insertWorkflowAndInitialRevision(String workflowTypeName, String tableName, String apiName, String apiVersion) throws QException
    {
       QRecord workflow = new InsertAction().execute(new InsertInput(Workflow.TABLE_NAME).withRecordEntity(new Workflow()
-         .withWorkflowTypeName(RecordWorkflowsDefinitionProducer.WORKFLOW_TYPE)
+         .withWorkflowTypeName(RecordWorkflowsDefinition.WORKFLOW_TYPE)
          .withTableName(tableName)
          .withName("test-" + UUID.randomUUID())
       )).getRecords().get(0);

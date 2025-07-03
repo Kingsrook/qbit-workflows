@@ -31,7 +31,7 @@ import java.util.function.BiFunction;
 import com.kingsrook.qbits.workflows.BaseTest;
 import com.kingsrook.qbits.workflows.WorkflowsTestDataSource;
 import com.kingsrook.qbits.workflows.implementations.recordworkflows.InputRecordFilterStep;
-import com.kingsrook.qbits.workflows.implementations.recordworkflows.RecordWorkflowsDefinitionProducer;
+import com.kingsrook.qbits.workflows.implementations.recordworkflows.RecordWorkflowsDefinition;
 import com.kingsrook.qbits.workflows.implementations.recordworkflows.RunRecordWorkflowProcessMetaDataProducer;
 import com.kingsrook.qbits.workflows.implementations.recordworkflows.UpdateInputRecordFieldStep;
 import com.kingsrook.qbits.workflows.model.Workflow;
@@ -84,7 +84,7 @@ class RunRecordWorkflowProcessTest extends BaseTest
       // else, if name doesn't start with test, it becomes test-.                        //
       // so running in a loop, we should see it toggle back and forth                    //
       /////////////////////////////////////////////////////////////////////////////////////
-      Workflow workflow   = WorkflowsTestDataSource.insertWorkflowAndInitialRevision(RecordWorkflowsDefinitionProducer.WORKFLOW_TYPE, Workflow.TABLE_NAME);
+      Workflow workflow   = WorkflowsTestDataSource.insertWorkflowAndInitialRevision(RecordWorkflowsDefinition.WORKFLOW_TYPE, Workflow.TABLE_NAME);
       Integer  workflowId = workflow.getId();
       Integer  revisionId = workflow.getCurrentWorkflowRevisionId();
 
@@ -135,7 +135,7 @@ class RunRecordWorkflowProcessTest extends BaseTest
    @Test
    void testMakeError() throws QException
    {
-      Workflow workflow   = WorkflowsTestDataSource.insertWorkflowAndInitialRevision(RecordWorkflowsDefinitionProducer.WORKFLOW_TYPE, Workflow.TABLE_NAME);
+      Workflow workflow   = WorkflowsTestDataSource.insertWorkflowAndInitialRevision(RecordWorkflowsDefinition.WORKFLOW_TYPE, Workflow.TABLE_NAME);
       Integer  workflowId = workflow.getId();
       Integer  revisionId = workflow.getCurrentWorkflowRevisionId();
 
@@ -163,7 +163,7 @@ class RunRecordWorkflowProcessTest extends BaseTest
    @Test
    void testWithApi() throws QException
    {
-      Workflow workflow   = WorkflowsTestDataSource.insertWorkflowAndInitialRevision(RecordWorkflowsDefinitionProducer.WORKFLOW_TYPE, TABLE_NAME_PERSON, API_NAME, V1);
+      Workflow workflow   = WorkflowsTestDataSource.insertWorkflowAndInitialRevision(RecordWorkflowsDefinition.WORKFLOW_TYPE, TABLE_NAME_PERSON, API_NAME, V1);
       Integer  workflowId = workflow.getId();
       Integer  revisionId = workflow.getCurrentWorkflowRevisionId();
 

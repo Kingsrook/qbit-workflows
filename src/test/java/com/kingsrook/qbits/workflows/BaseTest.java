@@ -172,8 +172,9 @@ public class BaseTest
       // produce our qbit //
       //////////////////////
       new WorkflowsQBitProducer()
-         .withWorkflowsQBitConfig(config)
-         .produce(qInstance);
+         .withQBitConfig(config)
+         .produce(qInstance)
+         .addSelfToInstance(qInstance);
 
       ///////////////////////////////////////////
       // turn off audits (why on by default??) //
