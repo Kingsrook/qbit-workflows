@@ -28,6 +28,7 @@ import java.util.List;
 import com.kingsrook.qbits.workflows.definition.WorkflowType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qqq.backend.core.actions.values.QCustomPossibleValueProvider;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.values.SearchPossibleValueSourceInput;
 import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerInterface;
@@ -69,7 +70,7 @@ public class WorkflowTypePossibleValueSource implements QCustomPossibleValueProv
    @Override
    public QPossibleValue<String> getPossibleValue(Serializable id)
    {
-      WorkflowType workflowType = WorkflowsRegistry.getInstance().getWorkflowType(ValueUtils.getValueAsString(id));
+      WorkflowType workflowType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowType(ValueUtils.getValueAsString(id));
       if(workflowType == null)
       {
          return (null);
@@ -97,7 +98,7 @@ public class WorkflowTypePossibleValueSource implements QCustomPossibleValueProv
    public List<QPossibleValue<String>> search(SearchPossibleValueSourceInput input) throws QException
    {
       List<QPossibleValue<String>> allPossibleValues = new ArrayList<>();
-      for(WorkflowType workflowType : WorkflowsRegistry.getInstance().getAllWorkflowTypes())
+      for(WorkflowType workflowType : WorkflowsRegistry.of(QContext.getQInstance()).getAllWorkflowTypes())
       {
          allPossibleValues.add(getPossibleValue(workflowType));
       }

@@ -36,6 +36,7 @@ import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
 import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepInput;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepOutput;
@@ -106,7 +107,7 @@ public class GetWorkflowTypeDefinitionProcess implements BackendStep, MetaDataPr
             throw (new QException("Did not receive workflow type name input - cannot proceed."));
          }
 
-         WorkflowType workflowType = WorkflowsRegistry.getInstance().getWorkflowType(workflowTypeName);
+         WorkflowType workflowType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowType(workflowTypeName);
          if(workflowType == null)
          {
             throw new QException("Workflow type not found: " + workflowTypeName);
@@ -124,7 +125,7 @@ public class GetWorkflowTypeDefinitionProcess implements BackendStep, MetaDataPr
          {
             for(String workflowStepTypeName : stepTypeCategory.getWorkflowStepTypes())
             {
-               WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(workflowStepTypeName);
+               WorkflowStepType workflowStepType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowStepType(workflowStepTypeName);
                if(workflowStepType == null)
                {
                   throw new QException("Workflow step type not found: " + workflowStepTypeName);

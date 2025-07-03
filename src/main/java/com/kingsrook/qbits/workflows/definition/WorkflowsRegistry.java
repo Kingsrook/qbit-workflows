@@ -30,17 +30,20 @@ import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
+import com.kingsrook.qqq.backend.core.model.metadata.QSupplementalInstanceMetaData;
 import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
 /*******************************************************************************
- ** Singleton that stores the available workflow types and their step types.
+ * Class that stores the available workflow types and their step types.
+ * Implemented as QSupplementalInstanceMetaData, meaning, it should exist
+ * as effectively a singleton within a QInstance.
  *******************************************************************************/
-public class WorkflowsRegistry
+public class WorkflowsRegistry implements QSupplementalInstanceMetaData
 {
    private static final QLogger LOG = QLogger.getLogger(WorkflowsRegistry.class);
 
-   private static WorkflowsRegistry workflowsRegistry = null;
+   public static String NAME = WorkflowsRegistry.class.getName();
 
    private Map<String, WorkflowType>     workflowTypes;
    private Map<String, WorkflowStepType> workflowStepTypes;
@@ -48,9 +51,9 @@ public class WorkflowsRegistry
 
 
    /*******************************************************************************
-    ** Singleton constructor
+    *
     *******************************************************************************/
-   private WorkflowsRegistry()
+   public WorkflowsRegistry()
    {
       workflowTypes = new LinkedHashMap<>();
       workflowStepTypes = new LinkedHashMap<>();
@@ -59,15 +62,29 @@ public class WorkflowsRegistry
 
 
    /*******************************************************************************
-    ** Singleton accessor
+    * get the instance of this object that is a member *of* the input QInstance
+    *
+    * @param qInstance the object containing the registry you are looking for
+    * @return the workflows registry in that qInstance, or null if there isn't one.
     *******************************************************************************/
-   public static WorkflowsRegistry getInstance()
+   public static WorkflowsRegistry of(QInstance qInstance)
    {
-      if(workflowsRegistry == null)
-      {
-         workflowsRegistry = new WorkflowsRegistry();
-      }
-      return (workflowsRegistry);
+      return QSupplementalInstanceMetaData.of(qInstance, NAME);
+   }
+
+
+
+   /*******************************************************************************
+    * get the instance of this object that is a member *of* the input QInstance -
+    * OR - if there isn't one, construct a new one and attach it to the instance.
+    *
+    * @param qInstance the object containing the registry you are looking for
+    * @return the workflows registry in that qInstance - OR - if there wasn't one,
+    * a new one, which has been put in the instance.
+    *******************************************************************************/
+   public static WorkflowsRegistry ofOrWithNew(QInstance qInstance)
+   {
+      return QSupplementalInstanceMetaData.ofOrWithNew(qInstance, NAME, WorkflowsRegistry::new);
    }
 
 
@@ -134,7 +151,7 @@ public class WorkflowsRegistry
    {
       if(workflowStepTypes.containsKey(workflowStepType.getName()))
       {
-         LOG.info("Replacing existing workflow step type", logPair("name", workflowStepType.getName()));
+         LOG.warn("Replacing existing workflow step type", logPair("name", workflowStepType.getName()));
       }
 
       workflowStepTypes.put(workflowStepType.getName(), workflowStepType);
@@ -145,6 +162,7 @@ public class WorkflowsRegistry
    /***************************************************************************
     **
     ***************************************************************************/
+   @Override
    public void enrich(QInstance qInstance)
    {
       workflowTypes.values().forEach(wt -> wt.enrich(qInstance));
@@ -156,9 +174,23 @@ public class WorkflowsRegistry
    /***************************************************************************
     **
     ***************************************************************************/
+   @Override
    public void validate(QInstance qInstance, QInstanceValidator qInstanceValidator)
    {
       workflowTypes.values().forEach(wt -> wt.validate(qInstanceValidator, qInstance));
       workflowStepTypes.values().forEach(workflowStepType -> workflowStepType.validate(qInstanceValidator, qInstance));
    }
+
+
+
+   /***************************************************************************
+    * as required by {@link QSupplementalInstanceMetaData}
+    * @return  the unique name for this object within its QInstance
+    ***************************************************************************/
+   @Override
+   public String getName()
+   {
+      return (NAME);
+   }
+
 }

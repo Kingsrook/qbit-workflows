@@ -28,16 +28,15 @@ import com.kingsrook.qbits.workflows.definition.WorkflowStepTypeCategory;
 import com.kingsrook.qbits.workflows.definition.WorkflowType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
-import com.kingsrook.qqq.backend.core.model.metadata.EmptyMetaDataProducerOutput;
-import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerInterface;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 
 
 /*******************************************************************************
- ** class to define the RecordWorkflows workflow type.
+ * class to define the RecordWorkflows workflow type and register it in the
+ * qInstance
  *******************************************************************************/
-public class RecordWorkflowsDefinitionProducer implements MetaDataProducerInterface<EmptyMetaDataProducerOutput>
+public class RecordWorkflowsDefinition
 {
    public static final String WORKFLOW_TYPE = "RecordWorkflow";
 
@@ -46,12 +45,10 @@ public class RecordWorkflowsDefinitionProducer implements MetaDataProducerInterf
    /***************************************************************************
     **
     ***************************************************************************/
-   @Override
-   public EmptyMetaDataProducerOutput produce(QInstance qInstance) throws QException
+   public void register(QInstance qInstance) throws QException
    {
-      registerStepTypes();
-      registerWorkflow();
-      return (new EmptyMetaDataProducerOutput());
+      registerStepTypes(qInstance);
+      registerWorkflow(qInstance);
    }
 
 
@@ -59,17 +56,17 @@ public class RecordWorkflowsDefinitionProducer implements MetaDataProducerInterf
    /***************************************************************************
     **
     ***************************************************************************/
-   protected void registerStepTypes() throws QException
+   protected void registerStepTypes(QInstance qInstance) throws QException
    {
       ////////////////////////////
       // first, general actions //
       ////////////////////////////
-      WorkflowsRegistry.getInstance().registerWorkflowStepType(new UpdateInputRecordFieldStep());
+      WorkflowsRegistry.of(qInstance).registerWorkflowStepType(new UpdateInputRecordFieldStep());
 
       //////////////////////
       // then, conditions //
       //////////////////////
-      WorkflowsRegistry.getInstance().registerWorkflowStepType(new InputRecordFilterStep());
+      WorkflowsRegistry.of(qInstance).registerWorkflowStepType(new InputRecordFilterStep());
    }
 
 
@@ -77,9 +74,9 @@ public class RecordWorkflowsDefinitionProducer implements MetaDataProducerInterf
    /***************************************************************************
     **
     ***************************************************************************/
-   protected void registerWorkflow() throws QException
+   protected void registerWorkflow(QInstance qInstance) throws QException
    {
-      WorkflowsRegistry.getInstance().registerWorkflowType(makeRecordWorkflow());
+      WorkflowsRegistry.of(qInstance).registerWorkflowType(makeRecordWorkflow());
    }
 
 

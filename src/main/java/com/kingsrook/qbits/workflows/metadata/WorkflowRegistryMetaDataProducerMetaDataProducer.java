@@ -19,25 +19,28 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.kingsrook.qbits.workflows.definition;
+package com.kingsrook.qbits.workflows.metadata;
 
 
-import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
-import com.kingsrook.qqq.backend.core.instances.validation.plugins.QInstanceValidatorPluginInterface;
+import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
+import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducer;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 
 
 /*******************************************************************************
- **
+ ** Meta Data Producer for WorkflowRegistryMetaDataProducer
  *******************************************************************************/
-public class WorkflowRegistryValidationPlugin implements QInstanceValidatorPluginInterface<QInstance>
+public class WorkflowRegistryMetaDataProducerMetaDataProducer extends MetaDataProducer<WorkflowsRegistry>
 {
-   /***************************************************************************
+
+   /*******************************************************************************
     **
-    ***************************************************************************/
+    *******************************************************************************/
    @Override
-   public void validate(QInstance qInstance, QInstance qInstance2, QInstanceValidator qInstanceValidator)
+   public WorkflowsRegistry produce(QInstance qInstance) throws QException
    {
-      WorkflowsRegistry.getInstance().validate(qInstance, qInstanceValidator);
+      return (new WorkflowsRegistry());
    }
+
 }

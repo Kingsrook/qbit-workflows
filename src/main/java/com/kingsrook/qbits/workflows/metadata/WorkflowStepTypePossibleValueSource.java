@@ -28,6 +28,7 @@ import java.util.List;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qqq.backend.core.actions.values.QCustomPossibleValueProvider;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.values.SearchPossibleValueSourceInput;
 import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerInterface;
@@ -69,7 +70,7 @@ public class WorkflowStepTypePossibleValueSource implements QCustomPossibleValue
    @Override
    public QPossibleValue<String> getPossibleValue(Serializable id)
    {
-      WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(ValueUtils.getValueAsString(id));
+      WorkflowStepType workflowStepType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowStepType(ValueUtils.getValueAsString(id));
       if(workflowStepType == null)
       {
          return (null);
@@ -97,7 +98,7 @@ public class WorkflowStepTypePossibleValueSource implements QCustomPossibleValue
    public List<QPossibleValue<String>> search(SearchPossibleValueSourceInput input) throws QException
    {
       List<QPossibleValue<String>> allPossibleValues = new ArrayList<>();
-      for(WorkflowStepType workflowStepType : WorkflowsRegistry.getInstance().getAllWorkflowStepTypes())
+      for(WorkflowStepType workflowStepType : WorkflowsRegistry.of(QContext.getQInstance()).getAllWorkflowStepTypes())
       {
          allPossibleValues.add(getPossibleValue(workflowStepType));
       }
