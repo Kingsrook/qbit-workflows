@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import com.google.gson.reflect.TypeToken;
+import com.kingsrook.qbits.workflows.definition.OutboundLinkMode;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.definition.WorkflowType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
@@ -44,6 +45,7 @@ import com.kingsrook.qbits.workflows.tracing.WorkflowTracerInterface;
 import com.kingsrook.qqq.backend.core.actions.AbstractQActionBiConsumer;
 import com.kingsrook.qqq.backend.core.actions.customizers.QCodeLoader;
 import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.actions.tables.get.GetInput;
@@ -78,14 +80,36 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
       /////////////////////////////////////////////////////////////////////////////////////////
       // get values map - initializing it if needed, and wrapping in modifiable ds if needed //
       /////////////////////////////////////////////////////////////////////////////////////////
-      Map<String, Serializable> values = Objects.requireNonNullElseGet(workflowInput.getValues(), () -> new LinkedHashMap<>());
-      values = CollectionUtils.useOrWrap(values, TypeToken.get(LinkedHashMap.class));
+      LinkedHashMap<String, Serializable> inputValues = CollectionUtils.useOrWrap(workflowInput.getValues(), new TypeToken<>() {});
+      inputValues = Objects.requireNonNullElseGet(inputValues, () -> new LinkedHashMap<>());
 
       //////////////////////////////////
       // initialize execution context //
       //////////////////////////////////
-      WorkflowExecutionContext context = new WorkflowExecutionContext();
-      context.setValues(values);
+      WorkflowExecutionContext context;
+      if(workflowInput.getWorkflowExecutionContext() != null)
+      {
+         context = workflowInput.getWorkflowExecutionContext();
+      }
+      else
+      {
+         context = new WorkflowExecutionContext();
+      }
+
+      //////////////////////////////////////////////////////////////////////
+      // if the context didn't already have a values map, then create one //
+      //////////////////////////////////////////////////////////////////////
+      if(context.getValues() == null)
+      {
+         context.setValues(inputValues);
+      }
+      else
+      {
+         ////////////////////////////////////////////////////////
+         // else, add all input values to the context's values //
+         ////////////////////////////////////////////////////////
+         context.getValues().putAll(inputValues);
+      }
 
       ///////////////////////////
       // initialize trace list //
@@ -99,6 +123,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
       workflowRunLog.setSteps(logStepList);
 
       WorkflowTypeExecutorInterface workflowTypeExecutor = null;
+      boolean                       weOwnTheTransaction  = false;
 
       try
       {
@@ -117,7 +142,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          ////////////////////////////////////////////
          // load type-executor, and do its pre-run //
          ////////////////////////////////////////////
-         WorkflowType workflowType = WorkflowsRegistry.getInstance().getWorkflowType(workflow.getWorkflowTypeName());
+         WorkflowType workflowType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowType(workflow.getWorkflowTypeName());
          if(workflowType == null)
          {
             throw new QException("Workflow type not found by name: " + workflow.getWorkflowTypeName());
@@ -125,7 +150,15 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          workflowTypeExecutor = QCodeLoader.getAdHoc(WorkflowTypeExecutorInterface.class, workflowType.getExecutor());
          workflowTypeExecutor.preRun(context, workflow, workflowRevision);
 
-         context.setTransaction(workflowTypeExecutor.openTransaction(workflow, workflowRevision));
+         if(workflowInput.getTransaction() != null)
+         {
+            context.setTransaction(workflowInput.getTransaction());
+         }
+         else
+         {
+            context.setTransaction(workflowTypeExecutor.openTransaction(workflow, workflowRevision));
+            weOwnTheTransaction = true;
+         }
 
          ///////////////
          // step loop //
@@ -150,13 +183,13 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
             workflowRunLogStep.setOutputData(ValueUtils.getValueAsString(workflowStepOutput.outputData()));
             workflowRunLogStep.setMessage(workflowStepOutput.message());
 
-            stepNo = getNextStepNo(workflowStepOutput.outputData(), stepNo, linkMap);
+            stepNo = getNextStepNo(workflowStepOutput.outputData(), step, linkMap);
 
             workflowRunLogStep.setEndTimestamp(Instant.now());
             seqNo++;
          }
 
-         if(context.getTransaction() != null)
+         if(weOwnTheTransaction && context.getTransaction() != null)
          {
             context.getTransaction().commit();
          }
@@ -177,7 +210,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
             workflowTypeExecutor.handleException(e, context);
          }
 
-         if(context.getTransaction() != null)
+         if(weOwnTheTransaction && context.getTransaction() != null)
          {
             context.getTransaction().rollback();
          }
@@ -196,7 +229,10 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
       finally
       {
          storeWorkflowRunLog(workflowRunLog);
-         closeTransaction(context);
+         if(weOwnTheTransaction)
+         {
+            closeTransaction(context);
+         }
       }
    }
 
@@ -289,7 +325,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
     ***************************************************************************/
    private WorkflowStepOutput executeStep(WorkflowStep step, WorkflowTypeExecutorInterface workflowTypeExecutor, WorkflowExecutionContext context) throws QException
    {
-      WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(step.getWorkflowStepTypeName());
+      WorkflowStepType workflowStepType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowStepType(step.getWorkflowStepTypeName());
       if(workflowStepType == null)
       {
          throw new QException("Workflow step type not found by name: " + step.getWorkflowStepTypeName());
