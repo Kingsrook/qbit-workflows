@@ -28,6 +28,8 @@ import java.util.Map;
 import com.kingsrook.qbits.workflows.WorkflowsQBitConfig;
 import com.kingsrook.qqq.backend.core.actions.dashboard.widgets.AbstractWidgetRenderer;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.instances.QMetaDataVariableInterpreter;
+import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetInput;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetOutput;
 import com.kingsrook.qqq.backend.core.model.dashboard.widgets.QWidgetData;
@@ -39,6 +41,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.dashboard.QWidgetMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.qbits.QBitComponentMetaDataProducerInterface;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
 import com.kingsrook.qqq.backend.core.utils.collections.MapBuilder;
+import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
 /*******************************************************************************
@@ -48,6 +51,8 @@ import com.kingsrook.qqq.backend.core.utils.collections.MapBuilder;
 public abstract class BaseQSequentialWorkflowWidgetRenderer extends AbstractWidgetRenderer
    implements MetaDataProducerInterface<QWidgetMetaData>, QBitComponentMetaDataProducerInterface<QWidgetMetaData, WorkflowsQBitConfig>
 {
+   private static final QLogger LOG = QLogger.getLogger(BaseQSequentialWorkflowWidgetRenderer.class);
+
    private WorkflowsQBitConfig qBitConfig = null;
 
 
@@ -88,11 +93,25 @@ public abstract class BaseQSequentialWorkflowWidgetRenderer extends AbstractWidg
    @Override
    public QWidgetMetaData produce(QInstance qInstance) throws QException
    {
+      /////////////////////////////////////////////////////////////
+      // allow a custom URL for the component to be given in env //
+      // useful for dev against a local build                    //
+      /////////////////////////////////////////////////////////////
+      String componentSourceUrl = new QMetaDataVariableInterpreter().interpret("${env.Q_SEQUENTIAL_WORKFLOW_COMPONENT_SOURCE_URL}");
+      if(StringUtils.hasContent(componentSourceUrl))
+      {
+         LOG.debug("Using component source url from environment", logPair("url", componentSourceUrl));
+      }
+      else
+      {
+         componentSourceUrl = "/dynamic-qfmd-components/q-sequential-workflow.bundle.js";
+      }
+
       Map<String, Serializable> defaultValues = MapBuilder.of(
          "componentName", "QSequentialWorkflow",
-         "componentSourceUrl", "/dynamic-qfmd-components/q-sequential-workflow.bundle.js",
+         "componentSourceUrl", componentSourceUrl,
          "readonlyState", getReadonlyState().name().toLowerCase(),
-         "sx", new HashMap<>(Map.of("height", "600px"))
+         "sx", new HashMap<>(Map.of("height", "calc(90vh)", "minHeight", "600px"))
       );
 
       if(qBitConfig != null)
