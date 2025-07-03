@@ -43,7 +43,8 @@ import com.kingsrook.qqq.backend.core.utils.StringUtils;
 /*******************************************************************************
  ** Transform step run-record-workflow process.  extends no-op, but main purpose is
  ** to set FIELD_VALIDATION_SUMMARY in the output, with the name of the workflow
- ** you selected.
+ ** you selected - this is because the process is set to not do full-validation,
+ ** so the process summary isn't otherwise ever ran.
  *******************************************************************************/
 public class RunRecordWorkflowTransformStep extends NoopTransformStep
 {
