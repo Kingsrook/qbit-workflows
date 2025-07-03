@@ -23,17 +23,20 @@ package com.kingsrook.qbits.workflows.processes;
 
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
+import com.kingsrook.qbits.workflows.execution.WorkflowStepValidatorInterface;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowLink;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
 import com.kingsrook.qqq.backend.core.actions.QBackendTransaction;
+import com.kingsrook.qqq.backend.core.actions.customizers.QCodeLoader;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
 import com.kingsrook.qqq.backend.core.actions.tables.AggregateAction;
 import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
@@ -189,25 +192,53 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
             throw (new QUserFacingException(message));
          }
 
-         /////////////////////////////////////////////////////////////////////////
-         // store steps (first setting revision id and a fresh summary on each) //
-         /////////////////////////////////////////////////////////////////////////
+         //////////////////////////////////////////////////////////////////////////////////////////////
+         // store steps (first setting revision id, validating, and putting a fresh summary on each) //
+         //////////////////////////////////////////////////////////////////////////////////////////////
          List<WorkflowStep> workflowSteps = JsonUtils.toObject(runBackendStepInput.getValueString("steps"), new TypeReference<>() {});
+         List<String>       errors        = new ArrayList<>();
          workflowSteps.forEach(step ->
          {
-            step.setWorkflowRevisionId(insertedRevisionId);
-
             try
             {
+               step.setWorkflowRevisionId(insertedRevisionId);
+
                WorkflowStepType          workflowStepType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowStepType(step.getWorkflowStepTypeName());
-               Map<String, Serializable> values           = ValueUtils.getValueAsMap(step.getInputValuesJson());
-               step.setSummary(workflowStepType.getDynamicStepSummary(workflowId, values));
+               Map<String, Serializable> inputValues      = ValueUtils.getValueAsMap(step.getInputValuesJson());
+
+               ////////////////////////////////////
+               // summary - if it fails, :shrug: //
+               ////////////////////////////////////
+               try
+               {
+                  step.setSummary(workflowStepType.getDynamicStepSummary(workflowId, inputValues));
+               }
+               catch(Exception e)
+               {
+                  LOG.warn("Error setting step summary for step", e, logPair("stepTypeName", step.getWorkflowStepTypeName()), logPair("workflowRevisionId", insertedRevisionId));
+               }
+
+               ///////////////////////////////////
+               // run validator if there is one //
+               ///////////////////////////////////
+               QCodeReference validatorCodeReference = workflowStepType.getValidator();
+               if(validatorCodeReference != null)
+               {
+                  WorkflowStepValidatorInterface validator = QCodeLoader.getAdHoc(WorkflowStepValidatorInterface.class, validatorCodeReference);
+                  validator.validate(step, inputValues, workflowRevisionRecord, workflowRecord, errors);
+               }
             }
             catch(Exception e)
             {
-               LOG.warn("Error setting step summary for step", e, logPair("stepTypeName", step.getWorkflowStepTypeName()), logPair("workflowRevisionId", insertedRevisionId));
+               errors.add("Error processing step [" + step.getSummary() + "]: " + e.getMessage());
             }
          });
+
+         if(!errors.isEmpty())
+         {
+            throw (new QUserFacingException("Validation errors in steps: " + StringUtils.joinWithCommasAndAnd(errors)));
+         }
+
          new InsertAction().execute(new InsertInput(WorkflowStep.TABLE_NAME).withRecordEntities(workflowSteps).withTransaction(transaction));
 
          /////////////////

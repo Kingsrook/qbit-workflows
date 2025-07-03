@@ -32,6 +32,7 @@ import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.execution.WorkflowExecutionContext;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepExecutorInterface;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepOutput;
+import com.kingsrook.qbits.workflows.execution.WorkflowStepValidatorInterface;
 import com.kingsrook.qbits.workflows.implementations.WorkflowStepUtils;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
@@ -46,6 +47,7 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.count.CountInput;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryInput;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
@@ -54,7 +56,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 /*******************************************************************************
  ** workflow step that compares the input record to a filter
  *******************************************************************************/
-public class InputRecordFilterStep extends WorkflowStepType implements WorkflowStepExecutorInterface
+public class InputRecordFilterStep extends WorkflowStepType implements WorkflowStepExecutorInterface, WorkflowStepValidatorInterface
 {
    private static final QLogger LOG = QLogger.getLogger(InputRecordFilterStep.class);
 
@@ -77,6 +79,7 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
          .withLabel("If Record Matches Filter")
          .withIconUrl("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij4KICAgPHBhdGggZD0iTTQuMjUgNS42MUM2LjI3IDguMiAxMCAxMyAxMCAxM3Y2YzAgLjU1LjQ1IDEgMSAxaDJjLjU1IDAgMS0uNDUgMS0xdi02czMuNzItNC44IDUuNzQtNy4zOWMuNTEtLjY2LjA0LTEuNjEtLjc5LTEuNjFINS4wNGMtLjgzIDAtMS4zLjk1LS43OSAxLjYxeiIvPgo8L3N2Zz4K")
          .withExecutor(new QCodeReference(getClass()))
+         .withValidator(new QCodeReference(getClass()))
          .withDescription("Choose a different set of actions based on if the record being processed matches a filter")
          .withInputWidgetNames(List.of(RecordWorkflowInputRecordFilterWidget.NAME));
    }
@@ -167,6 +170,42 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
       Integer count = new CountAction().execute(countInput).getCount();
 
       return count;
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   @Override
+   public void validate(WorkflowStep step, Map<String, Serializable> inputValues, QRecord workflowRevision, QRecord workflow, List<String> errors) throws QException
+   {
+      if(WorkflowStepUtils.useApi(new WorkflowRevision(workflowRevision)))
+      {
+         QQueryFilter filter = null;
+         try
+         {
+            filter = RecordWorkflowUtils.getFilterFromInput(inputValues);
+         }
+         catch(Exception e)
+         {
+            //////////////////////////////////////////////////////////////////////////////////
+            // let's assume if we can't find the filter, that it isn't invalid - just empty //
+            //////////////////////////////////////////////////////////////////////////////////
+            return;
+         }
+
+         if(filter != null)
+         {
+            String                      apiName            = workflowRevision.getValueString("apiName");
+            String                      apiVersion         = workflowRevision.getValueString("apiVersion");
+            String                      tableName          = workflow.getValueString("tableName");
+            Map<String, QFieldMetaData> tableApiFields     = GetTableApiFieldsAction.getTableApiFieldMap(new GetTableApiFieldsAction.ApiNameVersionAndTableName(apiName, apiVersion, tableName));
+            ArrayList<String>           badRequestMessages = new ArrayList<>();
+            ApiQueryFilterUtils.manageCriteriaFields(filter, tableApiFields, badRequestMessages, apiName, apiVersion, new QueryInput(tableName).withFilter(filter));
+            errors.addAll(badRequestMessages);
+         }
+      }
    }
 
    //////////////////////////////////////////////////////////////////////////////////////////////////////

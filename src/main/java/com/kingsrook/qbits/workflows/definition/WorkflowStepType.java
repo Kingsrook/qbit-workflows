@@ -51,6 +51,7 @@ public class WorkflowStepType implements Serializable
    private String         iconUrl;
    private String         description;
    private QCodeReference executor;
+   private QCodeReference validator;
 
    private OutboundLinkMode         outboundLinkMode;
    private List<OutboundLinkOption> outboundLinkOptions;
@@ -397,5 +398,42 @@ public class WorkflowStepType implements Serializable
       this.outboundLinkOptions = outboundLinkOptions;
       return (this);
    }
+
+
+   /*******************************************************************************
+    * Getter for validator
+    * @see #withValidator(QCodeReference)
+    *******************************************************************************/
+   public QCodeReference getValidator()
+   {
+      return (this.validator);
+   }
+
+
+
+   /*******************************************************************************
+    * Setter for validator
+    * @see #withValidator(QCodeReference)
+    *******************************************************************************/
+   public void setValidator(QCodeReference validator)
+   {
+      this.validator = validator;
+   }
+
+
+
+   /*******************************************************************************
+    * Fluent setter for validator
+    *
+    * @param validator
+    * Optional Code Reference to an implementation of WorkflowStepValidatorInterface,
+    * @return this
+    *******************************************************************************/
+   public WorkflowStepType withValidator(QCodeReference validator)
+   {
+      this.validator = validator;
+      return (this);
+   }
+
 
 }

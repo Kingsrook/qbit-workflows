@@ -34,6 +34,7 @@ import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.execution.WorkflowExecutionContext;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepExecutorInterface;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepOutput;
+import com.kingsrook.qbits.workflows.execution.WorkflowStepValidatorInterface;
 import com.kingsrook.qbits.workflows.implementations.WorkflowStepUtils;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
@@ -76,7 +77,7 @@ import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 /*******************************************************************************
  ** workflow step that updates a record with one value in one field
  *******************************************************************************/
-public class UpdateInputRecordFieldStep extends WorkflowStepType implements WorkflowStepExecutorInterface
+public class UpdateInputRecordFieldStep extends WorkflowStepType implements WorkflowStepExecutorInterface, WorkflowStepValidatorInterface
 {
    public static final String NAME = "updateInputRecordField";
 
@@ -95,6 +96,7 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
          .withLabel("Update Record Field")
          .withIconUrl("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij4KICAgPHBhdGggZD0iTTIyIDI0SDJ2LTRoMjB2NHpNMTMuMDYgNS4xOWwzLjc1IDMuNzVMNy43NSAxOEg0di0zLjc1bDkuMDYtOS4wNnptNC44MiAyLjY4LTMuNzUtMy43NSAxLjgzLTEuODNjLjM5LS4zOSAxLjAyLS4zOSAxLjQxIDBsMi4zNCAyLjM0Yy4zOS4zOS4zOSAxLjAyIDAgMS40MWwtMS44MyAxLjgzeiIvPgo8L3N2Zz4K")
          .withExecutor(new QCodeReference(getClass()))
+         .withValidator(new QCodeReference(getClass()))
          .withDescription("Update a value in a field on the record being processed")
          .withInputFields(List.of(
             new QFieldMetaData("fieldName", QFieldType.STRING)
@@ -517,6 +519,29 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
       {
          String securityFieldName = recordSecurityLock.getFieldName();
          recordToUpdate.setValue(securityFieldName, originalRecord.getValue(securityFieldName));
+      }
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   @Override
+   public void validate(WorkflowStep step, Map<String, Serializable> inputValues, QRecord workflowRevision, QRecord workflow, List<String> errors) throws QException
+   {
+      if(WorkflowStepUtils.useApi(new WorkflowRevision(workflowRevision)))
+      {
+         String fieldName  = ValueUtils.getValueAsString(inputValues.get("fieldName"));
+         String apiName    = ValueUtils.getValueAsString(workflowRevision.getValueString("apiName"));
+         String apiVersion = ValueUtils.getValueAsString(workflowRevision.getValueString("apiVersion"));
+         String tableName  = ValueUtils.getValueAsString(workflow.getValueString("tableName"));
+
+         Optional<QFieldMetaData> optionalApiField = getApiField(fieldName, tableName, new WorkflowRevision(workflowRevision));
+         if(optionalApiField.isEmpty())
+         {
+            errors.add("Could not find field '" + fieldName + "' in table '" + tableName + "' for API '" + apiName + "' version '" + apiVersion + "'");
+         }
       }
    }
 
