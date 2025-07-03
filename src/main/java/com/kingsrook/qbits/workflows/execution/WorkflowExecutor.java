@@ -282,9 +282,21 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
    /***************************************************************************
     **
     ***************************************************************************/
-   private Integer getNextStepNo(Serializable stepOutput, Integer fromStepNo, ListingHash<Integer, WorkflowLink> linkMap) throws QException
+   private Integer getNextStepNo(Serializable stepOutput, WorkflowStep fromStep, ListingHash<Integer, WorkflowLink> linkMap) throws QException
    {
-      List<WorkflowLink> links = linkMap.get(fromStepNo);
+      WorkflowStepType fromWorkflowStepType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowStepType(fromStep.getWorkflowStepTypeName());
+      if(OutboundLinkMode.ZERO.equals(fromWorkflowStepType.getOutboundLinkMode()))
+      {
+         //////////////////////////////////////////////////////////////////////////////////////////////////////////
+         // graphs are stored with a link from a zero-outbound step to the step that comes after them in the UI, //
+         // to allow it to distinguish between the code after the `if` closes being inside or outside the `if`.  //
+         // SO - the point is - never return a next step for a from-step that is zero outbound-link mode.        //
+         //////////////////////////////////////////////////////////////////////////////////////////////////////////
+         return (null);
+      }
+
+      Integer            fromStepNo = fromStep.getStepNo();
+      List<WorkflowLink> links      = linkMap.get(fromStepNo);
       if(CollectionUtils.nullSafeIsEmpty(links))
       {
          return (null);
