@@ -22,22 +22,12 @@
 package com.kingsrook.qbits.workflows.tables;
 
 
-import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 import com.kingsrook.qqq.backend.core.actions.customizers.TableCustomizerInterface;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.tables.QueryOrGetInputInterface;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
-import com.kingsrook.qqq.backend.core.model.metadata.fields.AdornmentType;
-import com.kingsrook.qqq.backend.core.model.tables.QQQTable;
-import com.kingsrook.qqq.backend.core.processes.utils.GeneralProcessUtils;
+import com.kingsrook.qqq.backend.core.model.tables.QQQTableTableManager;
 
 
 /*******************************************************************************
@@ -51,32 +41,7 @@ public class WorkflowRunLogTableCustomizer implements TableCustomizerInterface
    @Override
    public List<QRecord> postQuery(QueryOrGetInputInterface queryInput, List<QRecord> records) throws QException
    {
-      /////////////////////////////////////////////////////////////////////////////////////////
-      // note, this is a second copy of this logic (first being in standard process traces). //
-      // let the rule of 3 apply if we find ourselves copying it again                       //
-      /////////////////////////////////////////////////////////////////////////////////////////
-      if(queryInput.getShouldGenerateDisplayValues())
-      {
-         //////////////////////////////////////////////////////////////////////////////////////////////////
-         // for records with a inputRecordQqqTableId - look up that table name, then set a display-value //
-         // for the Link type adornment, to the inputRecordId record within that table.                  //
-         //////////////////////////////////////////////////////////////////////////////////////////////////
-         Set<Serializable> tableIds = records.stream().map(r -> r.getValue("inputRecordQqqTableId")).filter(Objects::nonNull).collect(Collectors.toSet());
-         if(!tableIds.isEmpty())
-         {
-            Map<Serializable, QRecord> tableMap = GeneralProcessUtils.loadTableToMap(QQQTable.TABLE_NAME, "id", new QQueryFilter(new QFilterCriteria("id", QCriteriaOperator.IN, tableIds)));
-
-            for(QRecord record : records)
-            {
-               QRecord qqqTableRecord = tableMap.get(record.getValue("inputRecordQqqTableId"));
-               if(qqqTableRecord != null && record.getValue("inputRecordId") != null)
-               {
-                  record.setDisplayValue("inputRecordId:" + AdornmentType.LinkValues.TO_RECORD_FROM_TABLE_DYNAMIC, qqqTableRecord.getValueString("name"));
-               }
-            }
-         }
-      }
-
+      QQQTableTableManager.setRecordLinksToRecordsFromTableDynamicForPostQuery(queryInput, records, "inputRecordQqqTableId", "inputRecordId");
       return (records);
    }
 }
