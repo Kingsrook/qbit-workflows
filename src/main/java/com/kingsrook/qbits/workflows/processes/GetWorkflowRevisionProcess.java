@@ -22,6 +22,10 @@
 package com.kingsrook.qbits.workflows.processes;
 
 
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import com.google.gson.reflect.TypeToken;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
@@ -40,6 +44,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QBackendStepMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QFunctionInputMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
+import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 
 
 /*******************************************************************************
@@ -109,8 +114,14 @@ public class GetWorkflowRevisionProcess implements BackendStep, MetaDataProducer
             throw new QException("Workflow Revision not found: " + workflowRevisionId);
          }
 
-         WorkflowRevision workflowRevision = new WorkflowRevision(workflowRevisionRecord);
-         runBackendStepOutput.addValue("workflowRevision", workflowRevision);
+         ////////////////////////////////////////////////////////////////////////////////////////////////////
+         // Frontend component was written to expect not QRecords, but simple value maps (as originally    //
+         // we were serializing QRecordEntities).  But, in case an application added fields to the table   //
+         // (e.g., a security field), it wouldn't be in the entity, so, we need to serialize the value     //
+         // map from the QRecord AND any associations that are needed similarly - thus - call this method. //
+         ////////////////////////////////////////////////////////////////////////////////////////////////////
+         LinkedHashMap<String, Serializable> workflowRevisionForResult = prepareWorkflowRevisionRecordForResponse(workflowRevisionRecord);
+         runBackendStepOutput.addValue("workflowRevision", workflowRevisionForResult);
       }
 
       //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,6 +136,27 @@ public class GetWorkflowRevisionProcess implements BackendStep, MetaDataProducer
 
 
    /***************************************************************************
+    *
+    ***************************************************************************/
+   private static LinkedHashMap<String, Serializable> prepareWorkflowRevisionRecordForResponse(QRecord record)
+   {
+      LinkedHashMap<String, Serializable> workflowRevisionForResult = CollectionUtils.useOrWrap(record.getValues(), new TypeToken<>() {});
+      record.getAssociatedRecords().forEach((key, value) ->
+      {
+         ArrayList<Serializable> associationList = new ArrayList<>();
+         workflowRevisionForResult.put(key, associationList);
+         for(QRecord associatedRecord : value)
+         {
+            LinkedHashMap<String, Serializable> associatedRecordForResult = CollectionUtils.useOrWrap(associatedRecord.getValues(), new TypeToken<>() {});
+            associationList.add(associatedRecordForResult);
+         }
+      });
+      return workflowRevisionForResult;
+   }
+
+
+
+   /***************************************************************************
     **
     ***************************************************************************/
    private static QRecord lookupWorkflow(RunBackendStepOutput runBackendStepOutput, Integer workflowId) throws QException
@@ -134,7 +166,9 @@ public class GetWorkflowRevisionProcess implements BackendStep, MetaDataProducer
       {
          throw new QException("Workflow not found: " + workflowId);
       }
-      runBackendStepOutput.addValue("workflow", new Workflow(workflowRecord));
+
+      LinkedHashMap<String, Serializable> workflowForResult = CollectionUtils.useOrWrap(workflowRecord.getValues(), new TypeToken<>() {});
+      runBackendStepOutput.addValue("workflow", workflowForResult);
       return workflowRecord;
    }
 
