@@ -23,6 +23,7 @@ package com.kingsrook.qbits.workflows.implementations.recordworkflows;
 
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.Map;
 import com.kingsrook.qbits.workflows.execution.WorkflowExecutionContext;
 import com.kingsrook.qqq.backend.core.actions.tables.CountAction;
@@ -37,7 +38,6 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import com.kingsrook.qqq.backend.core.utils.QQueryFilterFormatter;
-import org.json.JSONObject;
 
 
 /*******************************************************************************
@@ -116,9 +116,9 @@ public class RecordWorkflowUtils
    /***************************************************************************
     **
     ***************************************************************************/
-   public static String getDynamicStepSummaryForFilter(String tableName, JSONObject values) throws QException
+   public static String getDynamicStepSummaryForFilter(String tableName, Map<String, Serializable> inputValues) throws QException
    {
-      QQueryFilter filter = RecordWorkflowUtils.getFilterFromInput(values.toMap());
+      QQueryFilter filter = RecordWorkflowUtils.getFilterFromInput(inputValues);
       // todo - if api aware... this method we're calling, it assumes current-version, so, yeah...
       return QQueryFilterFormatter.formatQueryFilter(tableName, filter);
    }

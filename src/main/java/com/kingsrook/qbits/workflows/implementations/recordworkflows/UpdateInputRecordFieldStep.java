@@ -296,20 +296,20 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
     *
     ***************************************************************************/
    @Override
-   public String getDynamicStepSummary(Integer workflowId, JSONObject values) throws QException
+   public String getDynamicStepSummary(Integer workflowId, Map<String, Serializable> inputValues) throws QException
    {
-      String fieldName = values.optString("fieldName", null);
-      String value     = values.optString("value", null);
+      String fieldName = ValueUtils.getValueAsString(inputValues.get("fieldName"));
+      String value     = ValueUtils.getValueAsString(inputValues.get("value"));
 
-      String apiName = null;
+      String apiName    = null;
       String apiVersion = null;
-      if(values.has("workflowRevision"))
+      if(inputValues.get("workflowRevision") != null)
       {
-         Object o = values.get("workflowRevision");
-         if(o instanceof JSONObject jsonObject)
+         Object o = inputValues.get("workflowRevision");
+         if(o instanceof Map revisionMap)
          {
-            apiName = jsonObject.optString("apiName");
-            apiVersion = jsonObject.optString("apiVersion");
+            apiName = ValueUtils.getValueAsString(revisionMap.get("apiName"));
+            apiVersion = ValueUtils.getValueAsString(revisionMap.get("apiVersion"));
          }
       }
 

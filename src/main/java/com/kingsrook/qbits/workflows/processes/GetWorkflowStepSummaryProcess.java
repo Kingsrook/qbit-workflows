@@ -22,9 +22,12 @@
 package com.kingsrook.qbits.workflows.processes;
 
 
+import java.io.Serializable;
+import java.util.Map;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepInput;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepOutput;
@@ -36,7 +39,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QBackendStepMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QFunctionInputMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
-import org.json.JSONObject;
+import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 
 
 /*******************************************************************************
@@ -78,13 +81,12 @@ public class GetWorkflowStepSummaryProcess implements BackendStep, MetaDataProdu
    {
       Integer workflowId = runBackendStepInput.getValueInteger("workflowId");
 
-      String workflowStepTypeName = runBackendStepInput.getValueString("workflowStepTypeName");
-      String values = runBackendStepInput.getValueString("values");
-      JSONObject valuesJson = new JSONObject(values);
+      String                    workflowStepTypeName = runBackendStepInput.getValueString("workflowStepTypeName");
+      String                    values     = runBackendStepInput.getValueString("values");
+      Map<String, Serializable> valueAsMap = ValueUtils.getValueAsMap(values);
 
-      WorkflowStepType workflowStepType = WorkflowsRegistry.getInstance().getWorkflowStepType(workflowStepTypeName);
-      runBackendStepOutput.addValue("summary", workflowStepType.getDynamicStepSummary(workflowId, valuesJson));
+      WorkflowStepType workflowStepType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowStepType(workflowStepTypeName);
+      runBackendStepOutput.addValue("summary", workflowStepType.getDynamicStepSummary(workflowId, valueAsMap));
    }
-
 
 }

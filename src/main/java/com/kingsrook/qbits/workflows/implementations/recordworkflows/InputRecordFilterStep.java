@@ -49,7 +49,6 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
-import org.json.JSONObject;
 
 
 /*******************************************************************************
@@ -88,11 +87,11 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
     **
     ***************************************************************************/
    @Override
-   public String getDynamicStepSummary(Integer workflowId, JSONObject values) throws QException
+   public String getDynamicStepSummary(Integer workflowId, Map<String, Serializable> inputValues) throws QException
    {
       QRecord workflowRecord = GetAction.execute(Workflow.TABLE_NAME, workflowId);
       String  tableName      = workflowRecord.getValueString("tableName");
-      return (RecordWorkflowUtils.getDynamicStepSummaryForFilter(tableName, values));
+      return (RecordWorkflowUtils.getDynamicStepSummaryForFilter(tableName, inputValues));
    }
 
 

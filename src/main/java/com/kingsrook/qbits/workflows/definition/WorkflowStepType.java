@@ -25,6 +25,7 @@ package com.kingsrook.qbits.workflows.definition;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import com.google.gson.reflect.TypeToken;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepExecutorInterface;
 import com.kingsrook.qqq.backend.core.actions.customizers.QCodeLoader;
@@ -36,6 +37,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
+import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 import org.json.JSONObject;
 
 
@@ -61,7 +63,19 @@ public class WorkflowStepType implements Serializable
    /***************************************************************************
     **
     ***************************************************************************/
+   @Deprecated(since = "replaced by version that takes map instead of JSONObject")
    public String getDynamicStepSummary(Integer workflowId, JSONObject values) throws QException
+   {
+      Map<String, Serializable> valuesMap = ValueUtils.getValueAsMap(values.toString());
+      return (getDynamicStepSummary(workflowId, valuesMap));
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public String getDynamicStepSummary(Integer workflowId, Map<String, Serializable> inputValues) throws QException
    {
       return (null);
    }
