@@ -78,8 +78,8 @@ public class WorkflowRevision extends QRecordEntity implements Serializable
 {
    public static final String TABLE_NAME = "workflowRevision";
 
-   public static final String ASSOCIATION_NAME_WORKFLOW_STEP = "workflowSteps";
-   public static final String ASSOCIATION_NAME_WORKFLOW_LINK = "workflowLink";
+   public static final String ASSOCIATION_NAME_WORKFLOW_STEP = "steps";
+   public static final String ASSOCIATION_NAME_WORKFLOW_LINK = "links";
 
 
 
