@@ -50,6 +50,8 @@ public class WorkflowsQBitConfig implements QBitConfig
    private String         componentSourceUrl;
    private QCodeReference workflowTracerCodeReference = new QCodeReference(WorkflowRunLogTracer.class);
 
+   private boolean includeRecordWorkflows = true;
+
 
 
    /*******************************************************************************
@@ -245,6 +247,48 @@ public class WorkflowsQBitConfig implements QBitConfig
    public WorkflowsQBitConfig withWorkflowTracerCodeReference(QCodeReference workflowTracerCodeReference)
    {
       this.workflowTracerCodeReference = workflowTracerCodeReference;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    * Getter for includeRecordWorkflows
+    * @see #withIncludeRecordWorkflows(boolean)
+    *******************************************************************************/
+   public boolean getIncludeRecordWorkflows()
+   {
+      return (this.includeRecordWorkflows);
+   }
+
+
+
+   /*******************************************************************************
+    * Setter for includeRecordWorkflows
+    * @see #withIncludeRecordWorkflows(boolean)
+    *******************************************************************************/
+   public void setIncludeRecordWorkflows(boolean includeRecordWorkflows)
+   {
+      this.includeRecordWorkflows = includeRecordWorkflows;
+   }
+
+
+
+   /*******************************************************************************
+    * Fluent setter for includeRecordWorkflows
+    *
+    * @param includeRecordWorkflows
+    * Control if loading this QBit also loads the RecordWorkflow workflow type,
+    * as defined in RecordWorkflowsDefinition.  Default value is true.  Applications
+    * may want to set this to false, if they either don't want this workflow at all,
+    * or if they want to override RecordWorkflowsDefinition, e.g., to customize
+    * it, such as adding additional step types.
+    *
+    * @return this
+    *******************************************************************************/
+   public WorkflowsQBitConfig withIncludeRecordWorkflows(boolean includeRecordWorkflows)
+   {
+      this.includeRecordWorkflows = includeRecordWorkflows;
       return (this);
    }
 
