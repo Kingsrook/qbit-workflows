@@ -23,6 +23,8 @@ package com.kingsrook.qbits.workflows;
 
 
 import java.util.List;
+import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
+import com.kingsrook.qbits.workflows.implementations.recordworkflows.RecordWorkflowsDefinition;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowLink;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
@@ -38,8 +40,7 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperat
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.automation.TableTrigger;
-import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerHelper;
-import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerInterface;
+import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerMultiOutput;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
@@ -47,7 +48,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.layout.QAppSection;
 import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.qbits.QBitMetaData;
-import com.kingsrook.qqq.backend.core.model.metadata.qbits.QBitProducer;
+import com.kingsrook.qqq.backend.core.model.metadata.qbits.QBitMetaDataProducer;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QFieldSection;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.SectionFactory;
@@ -56,7 +57,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.tables.SectionFactory;
 /*******************************************************************************
  **
  *******************************************************************************/
-public class WorkflowsQBitProducer implements QBitProducer
+public class WorkflowsQBitProducer implements QBitMetaDataProducer<WorkflowsQBitConfig>
 {
    private WorkflowsQBitConfig workflowsQBitConfig;
 
@@ -66,22 +67,42 @@ public class WorkflowsQBitProducer implements QBitProducer
     **
     ***************************************************************************/
    @Override
-   public void produce(QInstance qInstance, String namespace) throws QException
+   public QBitMetaData getQBitMetaData()
    {
       QBitMetaData qBitMetaData = new QBitMetaData()
          .withGroupId("com.kingsrook.qbits")
          .withArtifactId("workflows")
-         .withVersion("0.1.4")
-         .withNamespace(namespace)
-         .withConfig(workflowsQBitConfig);
-      qInstance.addQBit(qBitMetaData);
+         .withVersion("0.1.5")
+         .withNamespace(getNamespace())
+         .withConfig(getQBitConfig());
 
-      List<MetaDataProducerInterface<?>> producers = MetaDataProducerHelper.findProducers(getClass().getPackageName());
-      finishProducing(qInstance, qBitMetaData, workflowsQBitConfig, producers);
+      return qBitMetaData;
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   @Override
+   public void postProduceActions(MetaDataProducerMultiOutput metaDataProducerMultiOutput, QInstance qInstance) throws QException
+   {
+      ////////////////////////////////////////////////////////////////////////////////////////
+      // add the registry to the QInstance now - it'll also be added when the multi-output  //
+      // is eventually added to the instance, but we need it to be in the instance earlier, //
+      // the RecordWorkflowsDefinition().register() call can access it.                     //
+      ////////////////////////////////////////////////////////////////////////////////////////
+      WorkflowsRegistry workflowsRegistry = metaDataProducerMultiOutput.get(WorkflowsRegistry.class, WorkflowsRegistry.NAME);
+      qInstance.add(workflowsRegistry);
+
+      if(workflowsQBitConfig.getIncludeRecordWorkflows())
+      {
+         new RecordWorkflowsDefinition().register(qInstance);
+      }
 
       if(!workflowsQBitConfig.getIncludeApiVersions())
       {
-         QTableMetaData workflowRevisionTable = qInstance.getTable(WorkflowRevision.TABLE_NAME);
+         QTableMetaData workflowRevisionTable = metaDataProducerMultiOutput.get(QTableMetaData.class, WorkflowRevision.TABLE_NAME);
          workflowRevisionTable.getFields().remove("apiVersion");
          workflowRevisionTable.getFields().remove("apiName");
          workflowRevisionTable.getSections().removeIf(s -> "api".equals(s.getName()));
@@ -89,7 +110,7 @@ public class WorkflowsQBitProducer implements QBitProducer
             .filter(s -> SectionFactory.getDefaultT2name().equals(s.getName()))
             .forEach(s -> s.setGridColumns(12));
 
-         QProcessMetaData storeRevisionProcess = qInstance.getProcess(StoreNewWorkflowRevisionProcess.NAME);
+         QProcessMetaData storeRevisionProcess = metaDataProducerMultiOutput.get(QProcessMetaData.class, StoreNewWorkflowRevisionProcess.NAME);
          List<QFieldMetaData> storeProcessFieldList = storeRevisionProcess.getBackendStep("execute")
             .getInputMetaData()
             .getFieldList();
@@ -170,9 +191,10 @@ public class WorkflowsQBitProducer implements QBitProducer
 
 
    /*******************************************************************************
-    ** Getter for workflowsQBitConfig
+    ** Getter for qBitConfig
     *******************************************************************************/
-   public WorkflowsQBitConfig getWorkflowsQBitConfig()
+   @Override
+   public WorkflowsQBitConfig getQBitConfig()
    {
       return (this.workflowsQBitConfig);
    }
@@ -180,9 +202,9 @@ public class WorkflowsQBitProducer implements QBitProducer
 
 
    /*******************************************************************************
-    ** Setter for workflowsQBitConfig
+    ** Setter for qBitConfig
     *******************************************************************************/
-   public void setWorkflowsQBitConfig(WorkflowsQBitConfig workflowsQBitConfig)
+   public void setQBitConfig(WorkflowsQBitConfig workflowsQBitConfig)
    {
       this.workflowsQBitConfig = workflowsQBitConfig;
    }
@@ -190,9 +212,9 @@ public class WorkflowsQBitProducer implements QBitProducer
 
 
    /*******************************************************************************
-    ** Fluent setter for workflowsQBitConfig
+    ** Fluent setter for qBitConfig
     *******************************************************************************/
-   public WorkflowsQBitProducer withWorkflowsQBitConfig(WorkflowsQBitConfig workflowsQBitConfig)
+   public WorkflowsQBitProducer withQBitConfig(WorkflowsQBitConfig workflowsQBitConfig)
    {
       this.workflowsQBitConfig = workflowsQBitConfig;
       return (this);
