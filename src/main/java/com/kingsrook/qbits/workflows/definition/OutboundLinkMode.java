@@ -26,6 +26,7 @@ package com.kingsrook.qbits.workflows.definition;
  ** How many links can come out of a step-type.
  ** ZERO means a terminal step - nothing out of it.
  ** ONE is a regular statement, that just flows to its next.
+ ** CONTAINER is itself a no-op, but it wraps (for UI reasons) a sequence
  ** TWO is for an if/else
  ** Unclear exactly how we'd do variable number of outbounds (e.g., a switch)
  ***************************************************************************/
@@ -33,5 +34,6 @@ public enum OutboundLinkMode
 {
    ZERO,
    ONE,
+   CONTAINER,
    TWO,
 }

@@ -113,16 +113,7 @@ public class RecordWorkflowFieldNamePossibleValueSource implements QCustomPossib
    {
       List<QPossibleValue<String>> rs = new ArrayList<>();
 
-      String tableName          = null;
-      String workflowValuesJSON = ValueUtils.getValueAsString(CollectionUtils.nonNullMap(input.getOtherValues()).get("workflowValuesJSON"));
-      if(StringUtils.hasContent(workflowValuesJSON))
-      {
-         JSONObject workflowValuesJSONObject = new JSONObject(workflowValuesJSON);
-         if(workflowValuesJSONObject.has("tableName"))
-         {
-            tableName = workflowValuesJSONObject.getString("tableName");
-         }
-      }
+      String tableName = getTableName(input);
 
       if(!StringUtils.hasContent(tableName))
       {
@@ -180,6 +171,26 @@ public class RecordWorkflowFieldNamePossibleValueSource implements QCustomPossib
       }
 
       return completeCustomPVSSearch(input, rs);
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   protected String getTableName(SearchPossibleValueSourceInput input)
+   {
+      String tableName          = null;
+      String workflowValuesJSON = ValueUtils.getValueAsString(CollectionUtils.nonNullMap(input.getOtherValues()).get("workflowValuesJSON"));
+      if(StringUtils.hasContent(workflowValuesJSON))
+      {
+         JSONObject workflowValuesJSONObject = new JSONObject(workflowValuesJSON);
+         if(workflowValuesJSONObject.has("tableName"))
+         {
+            tableName = workflowValuesJSONObject.getString("tableName");
+         }
+      }
+      return tableName;
    }
 
 }

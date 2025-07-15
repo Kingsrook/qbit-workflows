@@ -27,10 +27,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.instances.QHelpContentPlugin;
 import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.QSupplementalInstanceMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.help.QHelpContent;
 import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
@@ -39,7 +41,7 @@ import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
  * Implemented as QSupplementalInstanceMetaData, meaning, it should exist
  * as effectively a singleton within a QInstance.
  *******************************************************************************/
-public class WorkflowsRegistry implements QSupplementalInstanceMetaData
+public class WorkflowsRegistry implements QSupplementalInstanceMetaData, QHelpContentPlugin
 {
    private static final QLogger LOG = QLogger.getLogger(WorkflowsRegistry.class);
 
@@ -185,12 +187,39 @@ public class WorkflowsRegistry implements QSupplementalInstanceMetaData
 
    /***************************************************************************
     * as required by {@link QSupplementalInstanceMetaData}
-    * @return  the unique name for this object within its QInstance
+    * @return the unique name for this object within its QInstance
     ***************************************************************************/
    @Override
    public String getName()
    {
       return (NAME);
+   }
+
+
+
+   /***************************************************************************
+    * plug in to the QQQ Help Content system, to allow help content to set
+    * descriptions and labels for workflow steps.
+    ***************************************************************************/
+   @Override
+   public void acceptHelpContent(QInstance qInstance, QHelpContent helpContent, Map<String, String> nameValuePairs)
+   {
+      if(nameValuePairs.containsKey("workflowStepType"))
+      {
+         String           workflowStepTypeName = nameValuePairs.get("workflowStepType");
+         WorkflowStepType workflowStepType     = workflowStepTypes.get(workflowStepTypeName);
+         if(workflowStepType != null)
+         {
+            if("description".equals(nameValuePairs.get("slot")))
+            {
+               workflowStepType.setDescription(helpContent.getContentAsHtml());
+            }
+            else if("label".equals(nameValuePairs.get("slot")))
+            {
+               workflowStepType.setLabel(helpContent.getContent());
+            }
+         }
+      }
    }
 
 }

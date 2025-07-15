@@ -126,7 +126,7 @@ public abstract class BaseQSequentialWorkflowWidgetRenderer extends AbstractWidg
          }
       }
 
-      QWidgetMetaData optimizationWorkflowEditorWidget = new QWidgetMetaData()
+      QWidgetMetaData workflowWidget = new QWidgetMetaData()
          .withName(getWidgetName())
          .withType(WidgetType.CUSTOM_COMPONENT.getType())
          .withCodeReference(new QCodeReference(getClass()))
@@ -134,7 +134,7 @@ public abstract class BaseQSequentialWorkflowWidgetRenderer extends AbstractWidg
          .withIsCard(true)
          .withLabel("Workflow Steps")
          .withDefaultValues(defaultValues);
-      return optimizationWorkflowEditorWidget;
+      return workflowWidget;
    }
 
 

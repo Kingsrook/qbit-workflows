@@ -22,6 +22,8 @@
 package com.kingsrook.qbits.workflows;
 
 
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,6 +42,7 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.actions.tables.update.UpdateInput;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
+import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 
 
 /*******************************************************************************
@@ -167,4 +170,120 @@ public class WorkflowsTestDataSource
       return new Workflow(workflow).withCurrentWorkflowRevisionId(revisionId);
    }
 
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public static void insertSteps(Workflow workflow, List<WorkflowStep> steps) throws QException
+   {
+      steps.forEach(step -> step.setWorkflowRevisionId(workflow.getCurrentWorkflowRevisionId()));
+      new InsertAction().execute(new InsertInput(WorkflowStep.TABLE_NAME).withRecordEntities(steps));
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public static WorkflowStep newStep(Integer stepNo, String stepTypeName, String description, Map<String, Serializable> inputValues)
+   {
+      return new WorkflowStep()
+         .withStepNo(stepNo)
+         .withDescription(description)
+         .withWorkflowStepTypeName(stepTypeName)
+         .withInputValuesJson(JsonUtils.toJson(inputValues));
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public static WorkflowStep newStep(Integer stepNo, String stepTypeName, Map<String, Serializable> inputValues)
+   {
+      return newStep(stepNo, stepTypeName, null, inputValues);
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public static WorkflowStep newStep(List<WorkflowStep> stepList, String stepTypeName, Map<String, Serializable> inputValues)
+   {
+      WorkflowStep workflowStep = newStep(stepList.size() + 1, stepTypeName, null, inputValues);
+      stepList.add(workflowStep);
+      return workflowStep;
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public static void insertLinks(Workflow workflow, List<WorkflowLink> links) throws QException
+   {
+      links.forEach(link -> link.setWorkflowRevisionId(workflow.getCurrentWorkflowRevisionId()));
+      new InsertAction().execute(new InsertInput(WorkflowLink.TABLE_NAME).withRecordEntities(links));
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public static void insertTestLinks(Workflow workflow, List<TestLink> testLinks) throws QException
+   {
+      List<WorkflowLink> links = new ArrayList<>();
+      for(TestLink testLink : testLinks)
+      {
+         if(testLink.conditionValues == null || testLink.conditionValues.length == 0)
+         {
+            links.add(newLink(testLink.fromStep.getStepNo(), testLink.toStep.getStepNo()));
+         }
+         else
+         {
+            for(Serializable conditionValue : testLink.conditionValues)
+            {
+               links.add(newLink(testLink.fromStep.getStepNo(), testLink.toStep.getStepNo(), conditionValue));
+            }
+         }
+      }
+
+      links.forEach(link -> link.setWorkflowRevisionId(workflow.getCurrentWorkflowRevisionId()));
+      new InsertAction().execute(new InsertInput(WorkflowLink.TABLE_NAME).withRecordEntities(links));
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   public record TestLink(WorkflowStep fromStep, WorkflowStep toStep, Serializable... conditionValues)
+   {
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public static WorkflowLink newLink(Integer fromStepNo, Integer toStepNo)
+   {
+      return newLink(fromStepNo, toStepNo, null);
+   }
+
+
+
+   /***************************************************************************
+    **
+    ***************************************************************************/
+   public static WorkflowLink newLink(Integer fromStepNo, Integer toStepNo, Serializable conditionValue)
+   {
+      return new WorkflowLink()
+         .withFromStepNo(fromStepNo)
+         .withToStepNo(toStepNo)
+         .withConditionValue(ValueUtils.getValueAsString(conditionValue));
+   }
 }

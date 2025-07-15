@@ -72,7 +72,7 @@ public class WorkflowsQBitProducer implements QBitMetaDataProducer<WorkflowsQBit
       QBitMetaData qBitMetaData = new QBitMetaData()
          .withGroupId("com.kingsrook.qbits")
          .withArtifactId("workflows")
-         .withVersion("0.1.7")
+         .withVersion("0.1.8")
          .withNamespace(getNamespace())
          .withConfig(getQBitConfig());
 

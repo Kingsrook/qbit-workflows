@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Stack;
 import com.google.gson.reflect.TypeToken;
 import com.kingsrook.qbits.workflows.definition.OutboundLinkMode;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
@@ -68,6 +69,8 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
 
    private WorkflowTracerInterface workflowTracer;
    private WorkflowRunLog          inputWorkflowRunLog;
+
+   private Stack<Integer> containerStack = new Stack<>();
 
 
 
@@ -183,7 +186,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
             workflowRunLogStep.setOutputData(ValueUtils.getValueAsString(workflowStepOutput.outputData()));
             workflowRunLogStep.setMessage(workflowStepOutput.message());
 
-            stepNo = getNextStepNo(workflowStepOutput.outputData(), step, linkMap);
+            stepNo = getNextStepNo(workflowStepOutput.outputData(), step, linkMap, stepMap, false);
 
             workflowRunLogStep.setEndTimestamp(Instant.now());
             seqNo++;
@@ -280,9 +283,28 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
 
 
    /***************************************************************************
-    **
+    * Normal steps (OutboundLinkMode.ONE):
+    * - should just have 1 outbound link, with no conditionValue on it.
+    *
+    * Branch/Conditional steps (OutboundLinkMode.TWO):
+    * - will have ... 2 (more in future?  seems supported in here) outbound links
+    * - each with a conditionValue that represents the value that the stepOutput
+    * of the fromStep itself will be tested for.  e.g., true & false for a boolean
+    * conditional.  could be numbers or strings (in future) for a switch.
+    *
+    * Container steps (OutboundLinkMode.CONTAINER):
+    * - will have up to 2 outbound links:
+    * - one with a conditionValue of "push" going in to the 1st step
+    * inside the container (unless it's empty, then this link doesn't exist).
+    * - one with a condition value of "pop" going to the next step
+    * after the container (unless the container is at the end of the program.
+    * - the containerStack is used with a recursive call in here for popping.
+    *
+    * Interrupting / terminating steps (OutboundLinkMode.ZERO):
+    * - will probably still have an outbound link (to help draw the graph) - but
+    * this method ignores that link and returns null based on the link mode!
     ***************************************************************************/
-   private Integer getNextStepNo(Serializable stepOutput, WorkflowStep fromStep, ListingHash<Integer, WorkflowLink> linkMap) throws QException
+   private Integer getNextStepNo(Serializable stepOutput, WorkflowStep fromStep, ListingHash<Integer, WorkflowLink> linkMap, Map<Integer, WorkflowStep> stepMap, boolean isPop) throws QException
    {
       WorkflowStepType fromWorkflowStepType = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowStepType(fromStep.getWorkflowStepTypeName());
       if(OutboundLinkMode.ZERO.equals(fromWorkflowStepType.getOutboundLinkMode()))
@@ -295,19 +317,37 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          return (null);
       }
 
-      Integer            fromStepNo = fromStep.getStepNo();
-      List<WorkflowLink> links      = linkMap.get(fromStepNo);
-      if(CollectionUtils.nullSafeIsEmpty(links))
+      if(OutboundLinkMode.CONTAINER.equals(fromWorkflowStepType.getOutboundLinkMode()))
       {
-         return (null);
+         ///////////////////////////////////////////////////////////////////////////////////////////////////////
+         // container steps have a "push${stepNo}" outbound link for pushing their contents onto a stack      //
+         // (unless they're empty - then they'd just have a "pop" (unless they're at the end of the program)) //
+         ///////////////////////////////////////////////////////////////////////////////////////////////////////
+         if(isPop)
+         {
+            stepOutput = "pop";
+         }
+         else
+         {
+            stepOutput = "push";
+            containerStack.push(fromStep.getStepNo());
+         }
       }
 
+      Integer                       fromStepNo      = fromStep.getStepNo();
+      List<WorkflowLink>            links           = linkMap.get(fromStepNo);
       Class<? extends Serializable> stepOutputClass = stepOutput == null ? null : stepOutput.getClass();
 
-      for(WorkflowLink link : links)
+      //////////////////////////////////////////////////////////////////////////////////////
+      // look for a link between the fromStepNo matching the stepOutput / condition value //
+      //////////////////////////////////////////////////////////////////////////////////////
+      for(WorkflowLink link : CollectionUtils.nonNullList(links))
       {
          if(link.getConditionValue() == null)
          {
+            ///////////////////////////////////////////////////////
+            // a link w/o any condition means to always be taken //
+            ///////////////////////////////////////////////////////
             return (link.getToStepNo());
          }
          else
@@ -327,6 +367,18 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          }
       }
 
+      /////////////////////////////////////////////////////////////////////////
+      // if we didn't find a next-step, but there is something on the stack, //
+      // then look for a pop out of that frame                               //
+      /////////////////////////////////////////////////////////////////////////
+      if(!containerStack.isEmpty())
+      {
+         Integer      popStepNo = containerStack.pop();
+         WorkflowStep popStep   = stepMap.get(popStepNo);
+
+         return getNextStepNo(popStepNo, popStep, linkMap, stepMap, true);
+      }
+
       return (null);
    }
 
@@ -341,6 +393,11 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
       if(workflowStepType == null)
       {
          throw new QException("Workflow step type not found by name: " + step.getWorkflowStepTypeName());
+      }
+
+      if(OutboundLinkMode.CONTAINER.equals(workflowStepType.getOutboundLinkMode()))
+      {
+         return (new WorkflowStepOutput());
       }
 
       WorkflowStepExecutorInterface workflowStepExecutor = QCodeLoader.getAdHoc(WorkflowStepExecutorInterface.class, workflowStepType.getExecutor());

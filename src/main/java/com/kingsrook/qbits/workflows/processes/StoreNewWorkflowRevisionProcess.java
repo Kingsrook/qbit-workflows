@@ -169,8 +169,18 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
          workflowRevision.setCommitMessage(StringUtils.hasContent(commitMessage) ? commitMessage : "New workflow revision created by  " + QContext.getQSession().getUser().getFullName());
          workflowRevision.setApiName(runBackendStepInput.getValueString("apiName"));
          workflowRevision.setApiVersion(runBackendStepInput.getValueString("apiVersion"));
-         workflowRevision.setStartStepNo(1);
          workflowRevision.setAuthor(ObjectUtils.tryElse(() -> QContext.getQSession().getUser().getFullName(), "Unknown"));
+
+         List<WorkflowStep> workflowSteps = JsonUtils.toObject(runBackendStepInput.getValueString("steps"), new TypeReference<>() {});
+         if(!workflowSteps.isEmpty())
+         {
+            workflowRevision.setStartStepNo(workflowSteps.get(0).getStepNo());
+         }
+
+         if(workflowRevision.getStartStepNo() == null)
+         {
+            workflowRevision.setStartStepNo(1);
+         }
 
          QRecord workflowRevisionRecord = workflowRevision.toQRecord();
          setAdditionalValuesInWorkflowRevisionRecord(transaction, runBackendStepInput, workflowRevisionRecord);
@@ -195,8 +205,7 @@ public class StoreNewWorkflowRevisionProcess implements BackendStep, MetaDataPro
          //////////////////////////////////////////////////////////////////////////////////////////////
          // store steps (first setting revision id, validating, and putting a fresh summary on each) //
          //////////////////////////////////////////////////////////////////////////////////////////////
-         List<WorkflowStep> workflowSteps = JsonUtils.toObject(runBackendStepInput.getValueString("steps"), new TypeReference<>() {});
-         List<String>       errors        = new ArrayList<>();
+         List<String> errors = new ArrayList<>();
          workflowSteps.forEach(step ->
          {
             try

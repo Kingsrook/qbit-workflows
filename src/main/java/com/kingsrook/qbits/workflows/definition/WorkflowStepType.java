@@ -108,8 +108,17 @@ public class WorkflowStepType implements Serializable
    public void validate(QInstanceValidator qInstanceValidator, QInstance qInstance)
    {
       qInstanceValidator.assertCondition(StringUtils.hasContent(name), "WorkflowStepType name is required.");
-      qInstanceValidator.assertCondition(executor != null, "WorkflowStepType [" + name + "]: executor is required.");
-      qInstanceValidator.assertCondition(outboundLinkMode != null, "WorkflowStepType [" + name + "]: outboundLinkMode is required.");
+      if(qInstanceValidator.assertCondition(outboundLinkMode != null, "WorkflowStepType [" + name + "]: outboundLinkMode is required."))
+      {
+         if(OutboundLinkMode.CONTAINER.equals(outboundLinkMode))
+         {
+            qInstanceValidator.assertCondition(executor == null, "WorkflowStepType [" + name + "]: executor is not allowed for outboundLinkMode != CONTAINER.");
+         }
+         else
+         {
+            qInstanceValidator.assertCondition(executor != null, "WorkflowStepType [" + name + "]: executor is required (for outboundLinkMode != CONTAINER).");
+         }
+      }
 
       qInstanceValidator.assertNoException(() -> QCodeLoader.getAdHoc(WorkflowStepExecutorInterface.class, this.executor),
          "WorkflowStepType [" + name + "]: executor could not be loaded as an instance of WorkflowStepExecutorInterface");

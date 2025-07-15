@@ -118,9 +118,16 @@ public class RecordWorkflowUtils
     ***************************************************************************/
    public static String getDynamicStepSummaryForFilter(String tableName, Map<String, Serializable> inputValues) throws QException
    {
-      QQueryFilter filter = RecordWorkflowUtils.getFilterFromInput(inputValues);
-      // todo - if api aware... this method we're calling, it assumes current-version, so, yeah...
-      return QQueryFilterFormatter.formatQueryFilter(tableName, filter);
+      try
+      {
+         QQueryFilter filter = RecordWorkflowUtils.getFilterFromInput(inputValues);
+         // todo - if api aware... this method we're calling, it assumes current-version, so, yeah...
+         return QQueryFilterFormatter.formatQueryFilter(tableName, filter);
+      }
+      catch(Exception e)
+      {
+         return "No filter";
+      }
    }
 
 

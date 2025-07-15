@@ -79,6 +79,7 @@ public class WorkflowRunLogViewerWidget extends BaseQSequentialWorkflowWidgetRen
       List<QRecord>        workflowRunLogSteps = QueryAction.execute(WorkflowRunLogStep.TABLE_NAME, new QQueryFilter(new QFilterCriteria("workflowRunLogId", QCriteriaOperator.EQUALS, workflowRunLogId)));
       List<Integer>        executedStepIds     = workflowRunLogSteps.stream().map(wrls -> wrls.getValueInteger("workflowStepId")).toList();
       Map<Integer, String> stepOutputMap       = CollectionUtils.listToMap(workflowRunLogSteps, e -> e.getValueInteger("workflowStepId"), e -> e.getValueString("outputData"));
+      Map<Integer, String> stepLogMessageMap   = CollectionUtils.listToMap(workflowRunLogSteps, e -> e.getValueInteger("workflowStepId"), e -> e.getValueString("message"));
 
       return new OutputData()
       {
@@ -99,6 +100,16 @@ public class WorkflowRunLogViewerWidget extends BaseQSequentialWorkflowWidgetRen
          public Map<Integer, String> getStepOutputMap()
          {
             return (stepOutputMap);
+         }
+
+
+
+         /***************************************************************************
+          **
+          ***************************************************************************/
+         public Map<Integer, String> getStepLogMessageMap()
+         {
+            return (stepLogMessageMap);
          }
 
 

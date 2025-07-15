@@ -23,7 +23,10 @@ package com.kingsrook.qbits.workflows;
 
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
+import com.kingsrook.qbits.workflows.definition.OutboundLinkMode;
+import com.kingsrook.qbits.workflows.definition.OutboundLinkOption;
 import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.definition.WorkflowType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
@@ -48,6 +51,7 @@ public class TestWorkflowDefinitions
    public static final String TEST_WORKFLOW_TYPE  = "TestWorkflowType";
    public static final String ADD_X_TO_SUM_ACTION = "addXToSumAction";
    public static final String BOOLEAN_CONDITIONAL = "booleanConditional";
+   public static final String CONTAINER           = "container";
 
 
 
@@ -65,14 +69,26 @@ public class TestWorkflowDefinitions
       WorkflowsRegistry.of(QContext.getQInstance()).registerWorkflowStepType(new WorkflowStepType()
          .withName(ADD_X_TO_SUM_ACTION)
          .withLabel("Add X to Sum")
+         .withOutboundLinkMode(OutboundLinkMode.ONE)
          .withExecutor(new QCodeReference(AddXToSumStepExecutor.class))
          .withDescription("Add int in `x` to int in `sum`"));
 
       WorkflowsRegistry.of(QContext.getQInstance()).registerWorkflowStepType(new WorkflowStepType()
          .withName(BOOLEAN_CONDITIONAL)
          .withLabel("Boolean Conditional")
+         .withOutboundLinkMode(OutboundLinkMode.TWO)
+         .withOutboundLinkOptions(List.of(
+            new OutboundLinkOption().withValue("true").withLabel("Then"),
+            new OutboundLinkOption().withValue("false").withLabel("Else")
+         ))
          .withExecutor(new QCodeReference(BooleanConditionalExecutor.class))
          .withDescription("Evaluate boolean named `condition`"));
+
+      WorkflowsRegistry.of(QContext.getQInstance()).registerWorkflowStepType(new WorkflowStepType()
+         .withName(CONTAINER)
+         .withOutboundLinkMode(OutboundLinkMode.CONTAINER)
+         .withLabel("Container")
+         .withDescription("Group steps in the UI"));
    }
 
 
@@ -177,14 +193,6 @@ public class TestWorkflowDefinitions
       @Override
       public WorkflowStepOutput execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context)
       {
-         /* ??
-         Map<String, Object> inputValues = getInputValues(step);
-         if(inputValues.containsKey("filter"))
-         {
-            JsonUtils.toObject(ValueUtils.getValueAsString(inputValues.get("filter")))
-         }
-         */
-
          Boolean condition = ValueUtils.getValueAsBoolean(context.getValues().getOrDefault("condition", false));
          return (new WorkflowStepOutput(condition));
       }
