@@ -23,6 +23,7 @@ package com.kingsrook.qbits.workflows.execution;
 
 
 import java.io.Serializable;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
@@ -37,9 +38,11 @@ public class WorkflowExecutionContext
 {
    private Workflow                  workflow;
    private WorkflowRevision          workflowRevision;
-   private Map<String, Serializable> values;
+   private Map<String, Serializable> values = new LinkedHashMap<>();
    private QBackendTransaction       transaction;
    private WorkflowRunLog            workflowRunLog;
+
+   private boolean isTestRun = false;
 
 
 
@@ -166,6 +169,7 @@ public class WorkflowExecutionContext
    }
 
 
+
    /*******************************************************************************
     ** Getter for workflowRunLog
     *******************************************************************************/
@@ -195,5 +199,40 @@ public class WorkflowExecutionContext
       return (this);
    }
 
+
+
+   /*******************************************************************************
+    * Getter for isTestRun
+    * @see #withIsTestRun(boolean)
+    *******************************************************************************/
+   public boolean getIsTestRun()
+   {
+      return (this.isTestRun);
+   }
+
+
+
+   /*******************************************************************************
+    * Setter for isTestRun
+    * @see #withIsTestRun(boolean)
+    *******************************************************************************/
+   public void setIsTestRun(boolean isTestRun)
+   {
+      this.isTestRun = isTestRun;
+   }
+
+
+
+   /*******************************************************************************
+    * Fluent setter for isTestRun
+    *
+    * @param isTestRun indicates if the execution context is a test-run or not.
+    * @return this
+    *******************************************************************************/
+   public WorkflowExecutionContext withIsTestRun(boolean isTestRun)
+   {
+      this.isTestRun = isTestRun;
+      return (this);
+   }
 
 }

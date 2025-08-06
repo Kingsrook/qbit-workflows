@@ -59,42 +59,42 @@ class WorkflowExecutorTest extends BaseTest
       /////////////////////////////////
       output = executeWorkflow(workflowId, Map.of("condition", true, "seedValue", 0));
       assertNull(output.getException());
-      assertEquals(11, output.getValues().get("sum"));
+      assertEquals(11, output.getContext().getValues().get("sum"));
 
       ///////////////////////////////////////////////////////////////////
       // demonstrate taking the other conditional branch, versus above //
       ///////////////////////////////////////////////////////////////////
       output = executeWorkflow(workflowId, Map.of("condition", false, "seedValue", 0));
       assertNull(output.getException());
-      assertEquals(12, output.getValues().get("sum"));
+      assertEquals(12, output.getContext().getValues().get("sum"));
 
       ///////////////////////////////////////////////////////////////////////////////////////////
       // Show that the seed value was used in the pre-run - different seed gives different sum //
       ///////////////////////////////////////////////////////////////////////////////////////////
       output = executeWorkflow(workflowId, Map.of("condition", true, "seedValue", 10));
       assertNull(output.getException());
-      assertEquals(21, output.getValues().get("sum"));
+      assertEquals(21, output.getContext().getValues().get("sum"));
 
       //////////////////////////////
       // Show that post run works //
       //////////////////////////////
       output = executeWorkflow(workflowId, Map.of("condition", true, "overrideSumInPostRun", 1701));
       assertNull(output.getException());
-      assertEquals(1701, output.getValues().get("sum"));
+      assertEquals(1701, output.getContext().getValues().get("sum"));
 
       //////////////////////////////
       // Show that pre step works //
       //////////////////////////////
       output = executeWorkflow(workflowId, Map.of("condition", true, "doubleSumInEveryPreStep", true));
       assertNull(output.getException());
-      assertEquals(43, output.getValues().get("sum"));
+      assertEquals(43, output.getContext().getValues().get("sum"));
 
       ///////////////////////////////
       // Show that post step works //
       ///////////////////////////////
       output = executeWorkflow(workflowId, Map.of("condition", true, "overrideReturnValueInPostStep", false));
       assertNull(output.getException());
-      assertEquals(12, output.getValues().get("sum"));
+      assertEquals(12, output.getContext().getValues().get("sum"));
    }
 
 
@@ -135,7 +135,7 @@ class WorkflowExecutorTest extends BaseTest
          ));
 
          WorkflowOutput output = executeWorkflow(workflow.getId(), Map.of("seedValue", 0));
-         assertEquals(10, output.getValues().get("sum"));
+         assertEquals(10, output.getContext().getValues().get("sum"));
       }
 
       {
@@ -178,7 +178,7 @@ class WorkflowExecutorTest extends BaseTest
          ));
 
          WorkflowOutput output = executeWorkflow(workflow.getId(), Map.of("seedValue", 0));
-         assertEquals(21, output.getValues().get("sum"));
+         assertEquals(21, output.getContext().getValues().get("sum"));
       }
 
       {
@@ -201,7 +201,7 @@ class WorkflowExecutorTest extends BaseTest
          ));
 
          WorkflowOutput output = executeWorkflow(workflow.getId(), Map.of("seedValue", 0));
-         assertEquals(1, output.getValues().get("sum"));
+         assertEquals(1, output.getContext().getValues().get("sum"));
       }
 
       {
@@ -228,7 +228,7 @@ class WorkflowExecutorTest extends BaseTest
          ));
 
          WorkflowOutput output = executeWorkflow(workflow.getId(), Map.of("seedValue", 0));
-         assertEquals(3, output.getValues().get("sum"));
+         assertEquals(3, output.getContext().getValues().get("sum"));
       }
 
       {
@@ -251,7 +251,7 @@ class WorkflowExecutorTest extends BaseTest
          ));
 
          WorkflowOutput output = executeWorkflow(workflow.getId(), Map.of("seedValue", 0));
-         assertEquals(1, output.getValues().get("sum"));
+         assertEquals(1, output.getContext().getValues().get("sum"));
       }
 
       {
@@ -278,7 +278,7 @@ class WorkflowExecutorTest extends BaseTest
          ));
 
          WorkflowOutput output = executeWorkflow(workflow.getId(), Map.of("seedValue", 0));
-         assertEquals(1, output.getValues().get("sum"));
+         assertEquals(1, output.getContext().getValues().get("sum"));
       }
    }
 

@@ -31,6 +31,11 @@ import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowRunLog;
 import com.kingsrook.qbits.workflows.model.WorkflowRunLogStep;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
+import com.kingsrook.qbits.workflows.model.WorkflowTestAssertion;
+import com.kingsrook.qbits.workflows.model.WorkflowTestOutput;
+import com.kingsrook.qbits.workflows.model.WorkflowTestRun;
+import com.kingsrook.qbits.workflows.model.WorkflowTestRunScenario;
+import com.kingsrook.qbits.workflows.model.WorkflowTestScenario;
 import com.kingsrook.qbits.workflows.processes.StoreNewWorkflowRevisionProcess;
 import com.kingsrook.qbits.workflows.triggers.TableTriggerCustomizerForWorkflows;
 import com.kingsrook.qbits.workflows.triggers.WorkflowCustomTableTriggerRecordAutomationHandler;
@@ -131,7 +136,15 @@ public class WorkflowsQBitProducer implements QBitMetaDataProducer<WorkflowsQBit
          .withTable(WorkflowStep.TABLE_NAME)
          .withTable(WorkflowLink.TABLE_NAME)
          .withTable(WorkflowRunLog.TABLE_NAME)
-         .withTable(WorkflowRunLogStep.TABLE_NAME));
+         .withTable(WorkflowRunLogStep.TABLE_NAME)
+
+         .withTable(WorkflowTestScenario.TABLE_NAME)
+         .withTable(WorkflowTestAssertion.TABLE_NAME)
+         .withTable(WorkflowTestRun.TABLE_NAME)
+         .withTable(WorkflowTestRunScenario.TABLE_NAME)
+         .withTable(WorkflowTestOutput.TABLE_NAME)
+
+      );
    }
 
 

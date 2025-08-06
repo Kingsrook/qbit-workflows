@@ -58,6 +58,7 @@ public class WorkflowsTestDataSource
    {
       QRecord workflow = new InsertAction().execute(new InsertInput(Workflow.TABLE_NAME).withRecordEntity(new Workflow()
          .withWorkflowTypeName(TestWorkflowDefinitions.TEST_WORKFLOW_TYPE)
+         .withTableName(Workflow.TABLE_NAME)
          .withName("test")
       )).getRecords().get(0);
       Integer workflowId = workflow.getValueInteger("id");

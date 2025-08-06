@@ -1,6 +1,6 @@
 /*
  * QQQ - Low-code Application Framework for Engineers.
- * Copyright (C) 2021-2023.  Kingsrook, LLC
+ * Copyright (C) 2021-2025.  Kingsrook, LLC
  * 651 N Broad St Ste 205 # 6917 | Middletown DE 19709 | United States
  * contact@kingsrook.com
  * https://github.com/Kingsrook/
@@ -19,7 +19,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.kingsrook.qbits.workflows.processes;
+package com.kingsrook.qbits.workflows.implementations.recordworkflows;
 
 
 import java.io.Serializable;
@@ -119,6 +119,7 @@ public class RunRecordWorkflowLoadStep extends AbstractLoadStep implements Proce
          WorkflowInput workflowInput = new WorkflowInput();
          workflowInput.setWorkflowId(workflowId);
          workflowInput.setValues(Map.of("record", record));
+         workflowInput.setWorkflowExecutionContext(new RecordWorkflowContext());
 
          WorkflowOutput workflowOutput = new WorkflowOutput();
 

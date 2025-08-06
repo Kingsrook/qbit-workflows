@@ -31,14 +31,17 @@ import com.kingsrook.qbits.workflows.definition.WorkflowStepType;
 import com.kingsrook.qbits.workflows.definition.WorkflowType;
 import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qbits.workflows.execution.WorkflowExecutionContext;
+import com.kingsrook.qbits.workflows.execution.WorkflowInput;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepExecutorInterface;
 import com.kingsrook.qbits.workflows.execution.WorkflowStepOutput;
 import com.kingsrook.qbits.workflows.execution.WorkflowTypeExecutorInterface;
+import com.kingsrook.qbits.workflows.execution.WorkflowTypeTesterInterface;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 
@@ -64,6 +67,7 @@ public class TestWorkflowDefinitions
          .withName(TEST_WORKFLOW_TYPE)
          .withLabel("Test Workflow Type")
          .withExecutor(new QCodeReference(TestWorkflowTypeExecutor.class))
+         .withTester(new QCodeReference(TestWorkflowTypeTester.class))
          .withDescription("This is a test workflow type."));
 
       WorkflowsRegistry.of(QContext.getQInstance()).registerWorkflowStepType(new WorkflowStepType()
@@ -105,6 +109,7 @@ public class TestWorkflowDefinitions
       public void preRun(WorkflowExecutionContext context, Workflow workflow, WorkflowRevision workflowRevision)
       {
          Integer seedValue = ValueUtils.getValueAsInteger(context.getValues().getOrDefault("seedValue", 0));
+         context.getValues().put("seedValue", seedValue);
          context.getValues().put("sum", seedValue);
       }
 
@@ -154,6 +159,28 @@ public class TestWorkflowDefinitions
          }
 
          return stepOutput;
+      }
+
+   }
+
+
+
+   /*******************************************************************************
+    **
+    *******************************************************************************/
+   public static class TestWorkflowTypeTester implements WorkflowTypeTesterInterface
+   {
+      /***************************************************************************
+       *
+       ***************************************************************************/
+      @Override
+      public WorkflowInput setupWorkflowInputForTestScenario(QRecord workflow, QRecord scenario) throws QException
+      {
+         WorkflowInput workflowInput = WorkflowTypeTesterInterface.super.setupWorkflowInputForTestScenario(workflow, scenario);
+         workflowInput.getValues().put("seedValue", scenario.getValueInteger("sourceRecordId"));
+         workflowInput.getValues().put("condition", true);
+
+         return (workflowInput);
       }
    }
 

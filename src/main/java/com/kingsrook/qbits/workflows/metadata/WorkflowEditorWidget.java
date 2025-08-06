@@ -22,9 +22,17 @@
 package com.kingsrook.qbits.workflows.metadata;
 
 
+import com.kingsrook.qbits.workflows.definition.WorkflowType;
+import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
+import com.kingsrook.qbits.workflows.model.Workflow;
+import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.actions.widgets.RenderWidgetInput;
+import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
+import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
 /*******************************************************************************
@@ -32,6 +40,8 @@ import com.kingsrook.qqq.backend.core.utils.ValueUtils;
  *******************************************************************************/
 public class WorkflowEditorWidget extends BaseQSequentialWorkflowWidgetRenderer
 {
+   private static final QLogger LOG = QLogger.getLogger(WorkflowEditorWidget.class);
+
    public static final String NAME = "WorkflowEditor";
 
 
@@ -65,13 +75,47 @@ public class WorkflowEditorWidget extends BaseQSequentialWorkflowWidgetRenderer
    {
       return new OutputData()
       {
+         private String workflowId = input.getQueryParams().get("id");
+
+
 
          /***************************************************************************
           **
           ***************************************************************************/
          public Integer getWorkflowId()
          {
-            return (ValueUtils.getValueAsInteger(input.getQueryParams().get("id")));
+            return (ValueUtils.getValueAsInteger(workflowId));
+         }
+
+
+
+         /***************************************************************************
+          *
+          ***************************************************************************/
+         public Boolean getIncludeTestForm()
+         {
+            try
+            {
+               if(workflowId != null)
+               {
+                  QRecord workflowRecord = GetAction.execute(Workflow.TABLE_NAME, workflowId);
+                  if(workflowRecord != null)
+                  {
+                     String       workflowTypeName = workflowRecord.getValueString("workflowTypeName");
+                     WorkflowType workflowType     = WorkflowsRegistry.of(QContext.getQInstance()).getWorkflowType(workflowTypeName);
+                     if(workflowType.getTester() != null)
+                     {
+                        return (true);
+                     }
+                  }
+               }
+            }
+            catch(Exception e)
+            {
+               LOG.warn("Error getting workflow record", e, logPair("workflowId", workflowId));
+            }
+
+            return (false);
          }
 
       };

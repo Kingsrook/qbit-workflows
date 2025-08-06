@@ -96,6 +96,7 @@ public class RecordWorkflowsDefinition
          .withName(WORKFLOW_TYPE)
          .withLabel("Record Workflow")
          .withExecutor(new QCodeReference(RecordWorkflowTypeExecutor.class))
+         .withTester(new QCodeReference(RecordWorkflowTypeTester.class))
          .withDescription("Apply custom logic to any record from any table.  Can be automatically ran via Table Triggers, or manually via the Run Workflow action.")
          .withStepTypeCategories(List.of(
             new WorkflowStepTypeCategory()

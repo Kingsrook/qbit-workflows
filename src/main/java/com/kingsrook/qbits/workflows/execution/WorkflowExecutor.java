@@ -98,6 +98,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
       {
          context = new WorkflowExecutionContext();
       }
+      workflowOutput.setContext(context);
 
       //////////////////////////////////////////////////////////////////////
       // if the context didn't already have a values map, then create one //
@@ -134,7 +135,7 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
          // load the workflow (current revision), steps, and links //
          ////////////////////////////////////////////////////////////
          Workflow                           workflow         = getWorkflow(workflowInput.getWorkflowId());
-         WorkflowRevision                   workflowRevision = getWorkflowRevision(workflow.getCurrentWorkflowRevisionId());
+         WorkflowRevision                   workflowRevision = getWorkflowRevision(workflowInput, workflow.getCurrentWorkflowRevisionId());
          Map<Integer, WorkflowStep>         stepMap          = loadSteps(workflowRevision);
          ListingHash<Integer, WorkflowLink> linkMap          = loadLinks(workflowRevision);
 
@@ -192,16 +193,13 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
             seqNo++;
          }
 
+         workflowTypeExecutor.postRun(context);
+
          if(weOwnTheTransaction && context.getTransaction() != null)
          {
             context.getTransaction().commit();
          }
 
-         //////////////////////////////////
-         // post-run, then output values //
-         //////////////////////////////////
-         workflowTypeExecutor.postRun(context);
-         workflowOutput.setValues(context.getValues());
          workflowRunLog.setHadError(false);
       }
       catch(Exception e)
@@ -457,8 +455,13 @@ public class WorkflowExecutor extends AbstractQActionBiConsumer<WorkflowInput, W
    /***************************************************************************
     **
     ***************************************************************************/
-   private WorkflowRevision getWorkflowRevision(Integer workflowRevisionId) throws QException
+   private WorkflowRevision getWorkflowRevision(WorkflowInput workflowInput, Integer workflowRevisionId) throws QException
    {
+      if(workflowInput.getOverrideWorkflowRevision() != null)
+      {
+         return new WorkflowRevision(workflowInput.getOverrideWorkflowRevision());
+      }
+
       QRecord workflowRevision = new GetAction().executeForRecord(new GetInput(WorkflowRevision.TABLE_NAME)
          .withIncludeAssociations(true)
          .withPrimaryKey(workflowRevisionId));

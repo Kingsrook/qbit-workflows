@@ -27,9 +27,11 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qqq.api.model.APIVersion;
 import com.kingsrook.qqq.api.model.metadata.ApiInstanceMetaData;
 import com.kingsrook.qqq.api.model.metadata.ApiInstanceMetaDataContainer;
+import com.kingsrook.qqq.api.model.metadata.ApiInstanceMetaDataProvider;
 import com.kingsrook.qqq.api.model.metadata.fields.ApiFieldMetaData;
 import com.kingsrook.qqq.api.model.metadata.fields.ApiFieldMetaDataContainer;
 import com.kingsrook.qqq.api.model.metadata.tables.ApiTableMetaData;
@@ -47,7 +49,12 @@ import com.kingsrook.qqq.backend.core.model.metadata.authentication.QAuthenticat
 import com.kingsrook.qqq.backend.core.model.metadata.fields.DisplayFormat;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
+import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinOn;
+import com.kingsrook.qqq.backend.core.model.metadata.joins.JoinType;
+import com.kingsrook.qqq.backend.core.model.metadata.joins.QJoinMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.possiblevalues.QPossibleValueSource;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.Association;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.ExposedJoin;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.TablesPossibleValueSourceMetaDataProvider;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.UniqueKey;
@@ -72,6 +79,8 @@ public class BaseTest
    public static final String MEMORY_BACKEND_NAME = "memory";
 
    public static final String TABLE_NAME_PERSON = "person";
+   public static final String TABLE_NAME_SHAPE  = "shape";
+   public static final String TABLE_NAME_PET    = "pet";
 
    public static final String API_NAME             = "test-api";
    public static final String ALTERNATIVE_API_NAME = "person-api";
@@ -153,7 +162,7 @@ public class BaseTest
       // configure the qbit //
       ////////////////////////
       WorkflowsQBitConfig config = new WorkflowsQBitConfig()
-         .withIncludeApiVersions(false)
+         .withIncludeApiVersions(true)
          .withTableMetaDataCustomizer((i, table) ->
          {
             if(table.getBackendName() == null)
@@ -183,6 +192,11 @@ public class BaseTest
 
       qInstance.addTable(defineTablePerson());
       qInstance.addPossibleValueSource(QPossibleValueSource.newForTable(TABLE_NAME_PERSON));
+      qInstance.addTable(defineTableShape());
+      qInstance.addPossibleValueSource(QPossibleValueSource.newForTable(TABLE_NAME_SHAPE));
+      qInstance.addJoin(definePersonJoinShape());
+      qInstance.addTable(defineTablePet());
+      qInstance.addJoin(definePersonJoinPet());
       defineApiMetaData(qInstance);
 
       return qInstance;
@@ -191,9 +205,39 @@ public class BaseTest
 
 
    /***************************************************************************
+    *
+    ***************************************************************************/
+   private QJoinMetaData definePersonJoinShape()
+   {
+      return new QJoinMetaData()
+         .withLeftTable(TABLE_NAME_PERSON)
+         .withRightTable(TABLE_NAME_SHAPE)
+         .withType(JoinType.MANY_TO_ONE)
+         .withJoinOn(new JoinOn("favoriteShapeId", "id"))
+         .withName(QJoinMetaData.makeInferredJoinName(TABLE_NAME_PERSON, TABLE_NAME_SHAPE));
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   private QJoinMetaData definePersonJoinPet()
+   {
+      return new QJoinMetaData()
+         .withLeftTable(TABLE_NAME_PERSON)
+         .withRightTable(TABLE_NAME_PET)
+         .withType(JoinType.ONE_TO_MANY)
+         .withJoinOn(new JoinOn("id", "ownerPersonId"))
+         .withName(QJoinMetaData.makeInferredJoinName(TABLE_NAME_PERSON, TABLE_NAME_PET));
+   }
+
+
+
+   /***************************************************************************
     **
     ***************************************************************************/
-   private void defineApiMetaData(QInstance qInstance)
+   private void defineApiMetaData(QInstance qInstance) throws QException
    {
       qInstance.withSupplementalMetaData(new ApiInstanceMetaDataContainer()
          .withApiInstanceMetaData(new ApiInstanceMetaData()
@@ -218,6 +262,11 @@ public class BaseTest
             .withFutureVersions(List.of(new APIVersion(V3))))
       );
 
+      ApiTableMetaDataContainer.ofOrWithNew(qInstance.getTable(Workflow.TABLE_NAME))
+         .withApiTableMetaData(API_NAME, new ApiTableMetaData()
+            .withInitialVersion(V1));
+
+      ApiInstanceMetaDataProvider.defineAll(qInstance, MEMORY_BACKEND_NAME, null);
    }
 
 
@@ -243,10 +292,26 @@ public class BaseTest
          .withField(new QFieldMetaData("birthDate", QFieldType.DATE))
          .withField(new QFieldMetaData("email", QFieldType.STRING))
          .withField(new QFieldMetaData("bestFriendPersonId", QFieldType.INTEGER).withPossibleValueSourceName(TABLE_NAME_PERSON))
+         .withField(new QFieldMetaData("favoriteShapeId", QFieldType.INTEGER).withPossibleValueSourceName(TABLE_NAME_SHAPE))
          .withField(new QFieldMetaData("noOfShoes", QFieldType.INTEGER).withDisplayFormat(DisplayFormat.COMMAS))
-         .withField(new QFieldMetaData("cost", QFieldType.DECIMAL).withDisplayFormat(DisplayFormat.CURRENCY))
-         .withField(new QFieldMetaData("price", QFieldType.DECIMAL).withDisplayFormat(DisplayFormat.CURRENCY))
+         .withField(new QFieldMetaData("salary", QFieldType.DECIMAL).withDisplayFormat(DisplayFormat.CURRENCY))
+         .withField(new QFieldMetaData("debt", QFieldType.DECIMAL).withDisplayFormat(DisplayFormat.CURRENCY))
          .withField(new QFieldMetaData("photo", QFieldType.BLOB));
+
+      table.withExposedJoin(new ExposedJoin()
+         .withJoinTable(TABLE_NAME_SHAPE)
+         .withJoinPath(List.of(QJoinMetaData.makeInferredJoinName(TABLE_NAME_PERSON, TABLE_NAME_SHAPE)))
+         .withLabel("Favorite Shape"));
+
+      table.withExposedJoin(new ExposedJoin()
+         .withJoinTable(TABLE_NAME_PET)
+         .withJoinPath(List.of(QJoinMetaData.makeInferredJoinName(TABLE_NAME_PERSON, TABLE_NAME_PET)))
+         .withLabel("Pet"));
+
+      table.withAssociation(new Association()
+         .withAssociatedTableName(TABLE_NAME_PET)
+         .withJoinName(QJoinMetaData.makeInferredJoinName(TABLE_NAME_PERSON, TABLE_NAME_PET))
+         .withName("pets"));
 
       ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // make some changes to this table in the "main" api (but leave it like the backend in the ALTERNATIVE_API_NAME) //
@@ -269,18 +334,66 @@ public class BaseTest
       /////////////////////////////////////////////////////
       table.getField("birthDate").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withApiFieldName("birthDay")));
 
-      ////////////////////////////////////////////////////////////////////////////////
-      // See above - we renamed this field (in the backend) for the 2023_Q1 version //
-      ////////////////////////////////////////////////////////////////////////////////
+      ///////////////////////////////////////////////////////////////
+      // See above - we renamed this field (in the backend) for V2 //
+      ///////////////////////////////////////////////////////////////
       table.getField("noOfShoes").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withInitialVersion(V2)));
 
       /////////////////////////////////////////////////////////////////////////////////////////////////
       // 2 new fields - one will appear in a future version of the API, the other is always excluded //
       /////////////////////////////////////////////////////////////////////////////////////////////////
-      table.getField("cost").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withInitialVersion(V3)));
-      table.getField("price").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withIsExcluded(true)));
+      table.getField("salary").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withInitialVersion(V3)));
+      table.getField("debt").withSupplementalMetaData(new ApiFieldMetaDataContainer().withApiFieldMetaData(API_NAME, new ApiFieldMetaData().withIsExcluded(true)));
 
       return (table);
+   }
+
+
+
+   /*******************************************************************************
+    ** Define the 'shape' table used in standard tests.
+    *******************************************************************************/
+   public static QTableMetaData defineTableShape()
+   {
+      return new QTableMetaData()
+         .withName(TABLE_NAME_SHAPE)
+         .withBackendName(MEMORY_BACKEND_NAME)
+         .withPrimaryKeyField("id")
+         .withRecordLabelFields("name")
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("createDate", QFieldType.DATE_TIME).withIsEditable(false))
+         .withField(new QFieldMetaData("modifyDate", QFieldType.DATE_TIME).withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING))
+         .withField(new QFieldMetaData("type", QFieldType.STRING)) // todo PVS
+         .withField(new QFieldMetaData("noOfSides", QFieldType.INTEGER))
+         .withField(new QFieldMetaData("isPolygon", QFieldType.BOOLEAN)) // mmm, should be derived from type, no?
+         ;
+   }
+
+
+
+   /*******************************************************************************
+    ** Define the 'pet' table used in standard tests.
+    *******************************************************************************/
+   public static QTableMetaData defineTablePet()
+   {
+      QTableMetaData table = new QTableMetaData()
+         .withName(TABLE_NAME_PET)
+         .withBackendName(MEMORY_BACKEND_NAME)
+         .withPrimaryKeyField("id")
+         .withRecordLabelFields("name")
+         .withField(new QFieldMetaData("id", QFieldType.INTEGER).withIsEditable(false))
+         .withField(new QFieldMetaData("createDate", QFieldType.DATE_TIME).withIsEditable(false))
+         .withField(new QFieldMetaData("modifyDate", QFieldType.DATE_TIME).withIsEditable(false))
+         .withField(new QFieldMetaData("name", QFieldType.STRING))
+         .withField(new QFieldMetaData("species", QFieldType.STRING)) // todo PVS
+         .withField(new QFieldMetaData("ownerPersonId", QFieldType.INTEGER).withPossibleValueSourceName(TABLE_NAME_PERSON));;
+
+      table.withSupplementalMetaData(new ApiTableMetaDataContainer()
+         .withApiTableMetaData(API_NAME, new ApiTableMetaData()
+            .withInitialVersion(V1)));
+
+      return table;
    }
 
 }

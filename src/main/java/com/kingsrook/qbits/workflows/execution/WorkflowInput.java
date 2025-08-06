@@ -26,6 +26,7 @@ import java.io.Serializable;
 import java.util.Map;
 import com.kingsrook.qqq.backend.core.actions.QBackendTransaction;
 import com.kingsrook.qqq.backend.core.model.actions.AbstractActionInput;
+import com.kingsrook.qqq.backend.core.model.data.QRecord;
 
 
 /*******************************************************************************
@@ -35,6 +36,8 @@ public class WorkflowInput extends AbstractActionInput implements Serializable
 {
    private Integer                   workflowId;
    private Map<String, Serializable> values;
+
+   private QRecord overrideWorkflowRevision;
 
    private WorkflowExecutionContext workflowExecutionContext;
 
@@ -182,5 +185,44 @@ public class WorkflowInput extends AbstractActionInput implements Serializable
       this.workflowExecutionContext = workflowExecutionContext;
       return (this);
    }
+
+
+   /*******************************************************************************
+    * Getter for overrideWorkflowRevision
+    * @see #withOverrideWorkflowRevision(QRecord)
+    *******************************************************************************/
+   public QRecord getOverrideWorkflowRevision()
+   {
+      return (this.overrideWorkflowRevision);
+   }
+
+
+
+   /*******************************************************************************
+    * Setter for overrideWorkflowRevision
+    * @see #withOverrideWorkflowRevision(QRecord)
+    *******************************************************************************/
+   public void setOverrideWorkflowRevision(QRecord overrideWorkflowRevision)
+   {
+      this.overrideWorkflowRevision = overrideWorkflowRevision;
+   }
+
+
+
+   /*******************************************************************************
+    * Fluent setter for overrideWorkflowRevision
+    *
+    * @param overrideWorkflowRevision
+    * Allow a revision (populated with steps and links) to be passed in, to run instead
+    * of the current revision assigned to the workflow record.  Useful for use-cases
+    * where a user is editing and wants to run an unsaved set of steps & links.
+    * @return this
+    *******************************************************************************/
+   public WorkflowInput withOverrideWorkflowRevision(QRecord overrideWorkflowRevision)
+   {
+      this.overrideWorkflowRevision = overrideWorkflowRevision;
+      return (this);
+   }
+
 
 }

@@ -48,7 +48,9 @@ workflows:
           context: qqq-maven-registry-credentials
           filters:
             branches:
-              ignore: main
+              ignore:
+                - main
+                - feature/initial-dev
       - deploy:
           context: qqq-maven-registry-credentials
           filters:

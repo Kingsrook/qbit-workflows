@@ -24,6 +24,7 @@ package com.kingsrook.qbits.workflows.implementations.recordworkflows;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import com.kingsrook.qbits.workflows.definition.OutboundLinkMode;
@@ -39,18 +40,21 @@ import com.kingsrook.qbits.workflows.model.WorkflowRevision;
 import com.kingsrook.qbits.workflows.model.WorkflowStep;
 import com.kingsrook.qqq.api.actions.GetTableApiFieldsAction;
 import com.kingsrook.qqq.api.utils.ApiQueryFilterUtils;
-import com.kingsrook.qqq.backend.core.actions.tables.CountAction;
 import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.actions.tables.count.CountInput;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator;
-import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.CriteriaOption;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryInput;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryJoin;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
+import com.kingsrook.qqq.backend.core.model.data.QRecordWithJoinedRecords;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
+import com.kingsrook.qqq.backend.core.modules.backend.implementations.utils.BackendQueryFilterUtils;
+import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 
 
 /*******************************************************************************
@@ -111,45 +115,126 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
          throw (new QException("Missing record input in InputRecordFilterStep"));
       }
 
-      QQueryFilter inputFilter = RecordWorkflowUtils.getFilterFromInput(inputValues);
-      if(inputFilter == null)
+      QQueryFilter filter = RecordWorkflowUtils.getFilterFromInput(inputValues);
+      if(filter == null)
       {
          throw (new QException("Missing filter input in InputRecordFilterStep"));
       }
 
-      Integer          count;
-      QFilterCriteria  idEqualsCriteria = new QFilterCriteria("id", QCriteriaOperator.EQUALS, record.getValueInteger("id"));
       WorkflowRevision workflowRevision = context.getWorkflowRevision();
 
       if(WorkflowStepUtils.useApi(workflowRevision))
       {
-         count = countViaApi(context, inputFilter, idEqualsCriteria);
-      }
-      else
-      {
-         QQueryFilter actualFilter = new QQueryFilter()
-            .withCriteria(idEqualsCriteria)
-            .withSubFilter(inputFilter);
-
-         count = new CountAction().execute(new CountInput(context.getWorkflow().getTableName())
-            .withTransaction(context.getTransaction())
-            .withFilter(actualFilter)).getCount();
+         updateFilterForApi(context, filter);
       }
 
-      if(count == null || count == 0)
-      {
-         return (new WorkflowStepOutput(false));
-      }
+      ///////////////////////////////////////////////////////////////////////////////
+      // todo unclear if this should always happen or if it should be configurable //
+      ///////////////////////////////////////////////////////////////////////////////
+      filter.applyCriteriaOptionToAllCriteria(CriteriaOption.CASE_INSENSITIVE);
 
-      return (new WorkflowStepOutput(true));
+      List<QRecordWithJoinedRecords> recordWithJoins = buildCrossProduct(record, filter, context);
+      return evaluateCrossProduct(recordWithJoins, filter);
    }
 
 
 
    /***************************************************************************
-    **
+    *
     ***************************************************************************/
-   private Integer countViaApi(WorkflowExecutionContext context, QQueryFilter inputFilter, QFilterCriteria idEqualsCriteria) throws QException
+   public List<QRecordWithJoinedRecords> buildCrossProduct(QRecord record, QQueryFilter filter, WorkflowExecutionContext workflowExecutionContext) throws QException
+   {
+      RecordWorkflowContext context = (RecordWorkflowContext) workflowExecutionContext;
+
+      List<QRecordWithJoinedRecords> crossProduct = new ArrayList<>();
+      crossProduct.add(new QRecordWithJoinedRecords(record));
+
+      List<QueryJoin> joinsInFilter = BackendQueryFilterUtils.identifyJoinsInFilter(context.getWorkflow().getTableName(), filter);
+      for(QueryJoin join : joinsInFilter)
+      {
+         crossProduct = expandCrossProductViaJoin(crossProduct, join, context);
+      }
+
+      return crossProduct;
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   private static List<QRecordWithJoinedRecords> expandCrossProductViaJoin(List<QRecordWithJoinedRecords> orderWithJoinedRecords, QueryJoin queryJoin, RecordWorkflowContext context) throws QException
+   {
+      String                joinTableName           = queryJoin.getJoinTable();
+      ArrayList<QRecord>    recordsToBeInserted     = context.recordsToInsert.get().computeIfAbsent(joinTableName, k -> new ArrayList<>());
+      List<QRecord>         recordsAlreadyInBackend = context.getJoinRecords(queryJoin);
+      HashSet<Serializable> idsToDelete             = context.primaryKeysToDelete.get().computeIfAbsent(joinTableName, k -> new HashSet<>());
+      String                primaryKeyField         = QContext.getQInstance().getTable(joinTableName).getPrimaryKeyField();
+
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      // add records that already existed to the cross product, filtering out ones that are to be deleted //
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      List<QRecord> recordsToCross = new ArrayList<>();
+      for(QRecord record : CollectionUtils.nonNullList(recordsAlreadyInBackend))
+      {
+         if(!idsToDelete.contains(record.getValue(primaryKeyField)))
+         {
+            recordsToCross.add(record);
+         }
+      }
+
+      ////////////////////////////////////
+      // add any records to be inserted //
+      ////////////////////////////////////
+      CollectionUtils.addAllIfNotNull(recordsToCross, recordsToBeInserted);
+
+      orderWithJoinedRecords = makeCrossProduct(orderWithJoinedRecords, joinTableName, recordsToCross);
+      return orderWithJoinedRecords;
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   private static List<QRecordWithJoinedRecords> makeCrossProduct(List<QRecordWithJoinedRecords> orderWithJoinedRecords, String joinTableName, List<QRecord> joinRecodsToCross)
+   {
+      if(!joinRecodsToCross.isEmpty())
+      {
+         List<QRecordWithJoinedRecords> newCrossProduct = new ArrayList<>();
+         for(QRecordWithJoinedRecords orderWithJoinedRecord : orderWithJoinedRecords)
+         {
+            newCrossProduct.addAll(orderWithJoinedRecord.buildCrossProduct(joinTableName, joinRecodsToCross));
+         }
+         orderWithJoinedRecords = newCrossProduct;
+      }
+      return orderWithJoinedRecords;
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   public WorkflowStepOutput evaluateCrossProduct(List<QRecordWithJoinedRecords> crossProduct, QQueryFilter filter)
+   {
+      for(QRecordWithJoinedRecords record : crossProduct)
+      {
+         if(BackendQueryFilterUtils.doesRecordMatch(filter, record))
+         {
+            return new WorkflowStepOutput(true);
+         }
+      }
+
+      return new WorkflowStepOutput(false);
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   private void updateFilterForApi(WorkflowExecutionContext context, QQueryFilter inputFilter) throws QException
    {
       WorkflowRevision            workflowRevision   = context.getWorkflowRevision();
       Workflow                    workflow           = context.getWorkflow();
@@ -160,16 +245,6 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
          .withTransaction(context.getTransaction());
 
       ApiQueryFilterUtils.manageCriteriaFields(inputFilter, tableApiFields, badRequestMessages, workflowRevision.getApiName(), workflowRevision.getApiVersion(), countInput);
-
-      QQueryFilter actualFilter = new QQueryFilter()
-         .withCriteria(idEqualsCriteria)
-         .withSubFilter(inputFilter);
-
-      countInput.setFilter(actualFilter);
-
-      Integer count = new CountAction().execute(countInput).getCount();
-
-      return count;
    }
 
 
@@ -207,156 +282,5 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
          }
       }
    }
-
-   //////////////////////////////////////////////////////////////////////////////////////////////////////
-   // in some future, we might want to do such a filter in-memory.  This code was WIP to support that. //
-   //////////////////////////////////////////////////////////////////////////////////////////////////////
-   // /***************************************************************************
-   //  **
-   //  ***************************************************************************/
-   // public Serializable executeInMemory(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException
-   // {
-   //    QRecord record = (QRecord) context.getValues().get("record");
-   //    if(record == null)
-   //    {
-   //       throw (new QException("Missing record input in InputRecordFilterStep"));
-   //    }
-
-   //    QQueryFilter filter = RecordWorkflowUtils.getFilterFromInput(inputValues);
-   //    if(filter == null)
-   //    {
-   //       throw (new QException("Missing filter input in InputRecordFilterStep"));
-   //    }
-
-   //    ArrayList<? extends QRecord> joinedRecordsForFilter = buildJoinedRecordsForFiltering(record, filter);
-   //    for(QRecord recordWithJoins : joinedRecordsForFilter)
-   //    {
-   //       if(BackendQueryFilterUtils.doesRecordMatch(filter, recordWithJoins))
-   //       {
-   //          return (true);
-   //       }
-   //    }
-
-   //    return (false);
-   // }
-
-   // /***************************************************************************
-   //  ** given an order, and some -toOne joined records (e.g., order optimization plan
-   //  ** or order-Carton, add the order's associated lines & extrinsics to make a list
-   //  ** of QRecordWithJoinedRecords entities - that can be used for in-memory join filtering.
-   //  ***************************************************************************/
-   // private static ArrayList<? extends QRecord> buildJoinedRecordsForFiltering(QRecord mainRecord, QQueryFilter filter) throws QException
-   // {
-   //    Set<String> joinTablesInFilter = findJoinTablesInFilter(QContext.getQInstance().getTable(mainRecord.getTableName()), filter);
-   //    if(joinTablesInFilter.isEmpty())
-   //    {
-   //       ArrayList<QRecord> rs = new ArrayList<>();
-   //       rs.add(mainRecord);
-   //       return (rs);
-   //    }
-   //    else
-   //    {
-   //       QTableMetaData                    mainTable = QContext.getQInstance().getTable(mainRecord.getTableName());
-   //       List<Pair<String, List<QRecord>>> toJoin    = new ArrayList<>();
-   //       for(String joinTableName : joinTablesInFilter)
-   //       {
-   //          try
-   //          {
-   //             ExposedJoin   exposedJoin  = findExposedJoin(mainTable, joinTableName);
-   //             String        lastJoinName = exposedJoin.getJoinPath().get(exposedJoin.getJoinPath().size() - 1);
-   //             QJoinMetaData join         = QContext.getQInstance().getJoin(lastJoinName); // todo actually need to walk the path
-   //             boolean       isMany       = join.getType().equals(JoinType.ONE_TO_MANY) || join.getType().equals(JoinType.MANY_TO_MANY);
-
-   //             QueryInput queryInput = new QueryInput();
-   //             queryInput.setTableName(joinTableName);
-   //             queryInput.setFilter(new QQueryFilter(new QFilterCriteria("orderId", QCriteriaOperator.EQUALS, mainRecord.getValueInteger("id")))); // todo totes wrong
-   //             QueryOutput queryOutput = new QueryAction().execute(queryInput);
-
-   //             List<QRecord> joinRecords = queryOutput.getRecords();
-   //             toJoin.add(new Pair<>(exposedJoin.getJoinTable(), joinRecords.isEmpty() ? List.of(new QRecord()) : joinRecords));
-   //          }
-   //          catch(Exception e)
-   //          {
-   //             // todo this was incomplete
-   //             LOG.warn("Error building joined records for filtering - skipping table, but continuing...", e);
-   //          }
-   //       }
-
-   //       QRecordWithJoinedRecords recordWithJoinedRecords = new QRecordWithJoinedRecords(mainRecord);
-   //       recordWithJoinedRecords.setTableName(mainRecord.getTableName());
-   //       return (buildCrossProduct(new ArrayList<>(List.of(recordWithJoinedRecords)), toJoin));
-   //    }
-   // }
-
-   // /***************************************************************************
-   //  **
-   //  ***************************************************************************/
-   // private static ArrayList<QRecordWithJoinedRecords> buildCrossProduct(ArrayList<QRecordWithJoinedRecords> recordWithJoinedRecords, List<Pair<String, List<QRecord>>> toJoin)
-   // {
-   //    if(toJoin.isEmpty())
-   //    {
-   //       return (recordWithJoinedRecords);
-   //    }
-
-   //    Pair<String, List<QRecord>> firstPair     = toJoin.get(0);
-   //    String                      joinTableName = firstPair.getA();
-
-   //    ArrayList<QRecordWithJoinedRecords> nextList = new ArrayList<>();
-
-   //    for(QRecordWithJoinedRecords recordWithJoinedRecord : recordWithJoinedRecords)
-   //    {
-   //       for(QRecord joinRecord : firstPair.getB())
-   //       {
-   //          QRecordWithJoinedRecords next = new QRecordWithJoinedRecords(recordWithJoinedRecord);
-   //          next.addJoinedRecordValues(joinTableName, joinRecord);
-   //          nextList.add(next);
-   //       }
-   //    }
-
-   //    return buildCrossProduct(nextList, toJoin.subList(1, toJoin.size()));
-   // }
-
-   // /***************************************************************************
-   //  **
-   //  ***************************************************************************/
-   // private static ExposedJoin findExposedJoin(QTableMetaData mainTable, String joinTableName) throws QException
-   // {
-   //    for(ExposedJoin exposedJoin : CollectionUtils.nonNullList(mainTable.getExposedJoins()))
-   //    {
-   //       if(exposedJoin.getJoinTable().equals(joinTableName))
-   //       {
-   //          return (exposedJoin);
-   //       }
-   //    }
-
-   //    throw (new QException("Could not find exposed join from " + mainTable.getName() + " to " + joinTableName));
-   // }
-
-   // /***************************************************************************
-   //  *
-   //  ***************************************************************************/
-   // private static Set<String> findJoinTablesInFilter(QTableMetaData mainTable, QQueryFilter filter) throws QException
-   // {
-   //    Set<String> rs = new HashSet<>();
-
-   //    if(filter != null)
-   //    {
-   //       for(QFilterCriteria criteria : CollectionUtils.nonNullList(filter.getCriteria()))
-   //       {
-   //          FieldAndJoinTable fieldAndJoinTable = FieldAndJoinTable.get(mainTable, criteria.getFieldName());
-   //          if(fieldAndJoinTable.joinTable() != null && !fieldAndJoinTable.joinTable().equals(mainTable))
-   //          {
-   //             rs.add(fieldAndJoinTable.joinTable().getName());
-   //          }
-   //       }
-
-   //       for(QQueryFilter subFilter : CollectionUtils.nonNullList(filter.getSubFilters()))
-   //       {
-   //          rs.addAll(findJoinTablesInFilter(mainTable, subFilter));
-   //       }
-   //    }
-
-   //    return (rs);
-   // }
 
 }

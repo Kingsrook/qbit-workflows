@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import com.google.gson.reflect.TypeToken;
 import com.kingsrook.qbits.workflows.execution.WorkflowTypeExecutorInterface;
-import com.kingsrook.qqq.backend.core.actions.customizers.QCodeLoader;
+import com.kingsrook.qbits.workflows.execution.WorkflowTypeTesterInterface;
 import com.kingsrook.qqq.backend.core.instances.QInstanceEnricher;
 import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
@@ -50,6 +50,7 @@ public class WorkflowType implements Serializable
    private String         label;
    private String         description;
    private QCodeReference executor;
+   private QCodeReference tester;
 
    private ArrayList<WorkflowStepTypeCategory> stepTypeCategories;
 
@@ -74,10 +75,16 @@ public class WorkflowType implements Serializable
    public void validate(QInstanceValidator qInstanceValidator, QInstance qInstance)
    {
       qInstanceValidator.assertCondition(StringUtils.hasContent(name), "WorkflowType name is required.");
-      qInstanceValidator.assertCondition(executor != null, "WorkflowType [" + name + "]: executor is required.");
 
-      qInstanceValidator.assertNoException(() -> QCodeLoader.getAdHoc(WorkflowTypeExecutorInterface.class, this.executor),
-         "WorkflowType [" + name + "]: executor could not be loaded as an instance of WorkflowTypeExecutorInterface");
+      if(qInstanceValidator.assertCondition(executor != null, "WorkflowType [" + name + "]: executor is required."))
+      {
+         qInstanceValidator.validateSimpleCodeReference("WorkflowType [" + name + "]: executor ", executor, WorkflowTypeExecutorInterface.class);
+      }
+
+      if(tester != null)
+      {
+         qInstanceValidator.validateSimpleCodeReference("WorkflowType [" + name + "]: tester ", tester, WorkflowTypeTesterInterface.class);
+      }
    }
 
 
@@ -135,6 +142,9 @@ public class WorkflowType implements Serializable
 
    /*******************************************************************************
     ** Fluent setter for executor
+    *
+    * @param executor reference to implementation of
+    * {@link com.kingsrook.qbits.workflows.execution.WorkflowTypeExecutorInterface}
     *******************************************************************************/
    public WorkflowType withExecutor(QCodeReference executor)
    {
@@ -255,4 +265,42 @@ public class WorkflowType implements Serializable
    {
       return Collections.emptyMap();
    }
+
+   /*******************************************************************************
+    * Getter for tester
+    * @see #withTester(QCodeReference)
+    *******************************************************************************/
+   public QCodeReference getTester()
+   {
+      return (this.tester);
+   }
+
+
+
+   /*******************************************************************************
+    * Setter for tester
+    * @see #withTester(QCodeReference)
+    *******************************************************************************/
+   public void setTester(QCodeReference tester)
+   {
+      this.tester = tester;
+   }
+
+
+
+   /*******************************************************************************
+    * Fluent setter for tester
+    *
+    * @param tester reference to implementation of
+    * {@link com.kingsrook.qbits.workflows.execution.WorkflowTypeTesterInterface}
+    *
+    * @return this
+    *******************************************************************************/
+   public WorkflowType withTester(QCodeReference tester)
+   {
+      this.tester = tester;
+      return (this);
+   }
+
+
 }

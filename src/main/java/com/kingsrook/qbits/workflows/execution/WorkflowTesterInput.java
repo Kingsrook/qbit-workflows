@@ -23,114 +23,129 @@ package com.kingsrook.qbits.workflows.execution;
 
 
 import java.io.Serializable;
-import com.kingsrook.qbits.workflows.model.WorkflowRunLog;
-import com.kingsrook.qqq.backend.core.model.actions.AbstractActionOutput;
+import java.util.List;
+import com.kingsrook.qqq.backend.core.model.actions.AbstractActionInput;
+import com.kingsrook.qqq.backend.core.model.data.QRecord;
 
 
 /*******************************************************************************
  **
  *******************************************************************************/
-public class WorkflowOutput extends AbstractActionOutput implements Serializable
+public class WorkflowTesterInput extends AbstractActionInput implements Serializable
 {
-   private Exception                exception;
-   private WorkflowExecutionContext context;
-   private WorkflowRunLog           workflowRunLog;
+   private QRecord       workflow;
+   private List<QRecord> workflowTestScenarioList;
+
+   private QRecord overrideWorkflowRevision;
 
 
 
    /*******************************************************************************
-    ** Getter for exception
+    * Getter for workflow
+    * @see #withWorkflow(QRecord)
     *******************************************************************************/
-   public Exception getException()
+   public QRecord getWorkflow()
    {
-      return (this.exception);
+      return workflow;
    }
 
 
 
    /*******************************************************************************
-    ** Setter for exception
+    * Setter for workflow
+    * @see #withWorkflow(QRecord)
     *******************************************************************************/
-   public void setException(Exception exception)
+   public void setWorkflow(QRecord workflow)
    {
-      this.exception = exception;
+      this.workflow = workflow;
    }
 
 
 
    /*******************************************************************************
-    ** Fluent setter for exception
-    *******************************************************************************/
-   public WorkflowOutput withException(Exception exception)
-   {
-      this.exception = exception;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    ** Getter for workflowRunLog
-    *******************************************************************************/
-   public WorkflowRunLog getWorkflowRunLog()
-   {
-      return (this.workflowRunLog);
-   }
-
-
-
-   /*******************************************************************************
-    ** Setter for workflowRunLog
-    *******************************************************************************/
-   public void setWorkflowRunLog(WorkflowRunLog workflowRunLog)
-   {
-      this.workflowRunLog = workflowRunLog;
-   }
-
-
-
-   /*******************************************************************************
-    ** Fluent setter for workflowRunLog
-    *******************************************************************************/
-   public WorkflowOutput withWorkflowRunLog(WorkflowRunLog workflowRunLog)
-   {
-      this.workflowRunLog = workflowRunLog;
-      return (this);
-   }
-
-
-
-   /*******************************************************************************
-    * Getter for context
-    * @see #withContext(WorkflowExecutionContext)
-    *******************************************************************************/
-   public WorkflowExecutionContext getContext()
-   {
-      return (this.context);
-   }
-
-
-
-   /*******************************************************************************
-    * Setter for context
-    * @see #withContext(WorkflowExecutionContext)
-    *******************************************************************************/
-   public void setContext(WorkflowExecutionContext context)
-   {
-      this.context = context;
-   }
-
-
-
-   /*******************************************************************************
-    * Fluent setter for context
+    * Fluent setter for workflow
     *
-    * @param context the workflow execution context that was used during execution.
+    * @param workflow The workflow to test
     * @return this
     *******************************************************************************/
-   public WorkflowOutput withContext(WorkflowExecutionContext context)
+   public WorkflowTesterInput withWorkflow(QRecord workflow)
    {
-      this.context = context;
+      this.workflow = workflow;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    * Getter for workflowTestScenarioList
+    * @see #withWorkflowTestScenarioList(List)
+    *******************************************************************************/
+   public List<QRecord> getWorkflowTestScenarioList()
+   {
+      return (this.workflowTestScenarioList);
+   }
+
+
+
+   /*******************************************************************************
+    * Setter for workflowTestScenarioList
+    * @see #withWorkflowTestScenarioList(List)
+    *******************************************************************************/
+   public void setWorkflowTestScenarioList(List<QRecord> workflowTestScenarioList)
+   {
+      this.workflowTestScenarioList = workflowTestScenarioList;
+   }
+
+
+
+   /*******************************************************************************
+    * Fluent setter for workflowTestScenarioList
+    *
+    * @param workflowTestScenarioList list of scenarios to test against.
+    * @return this
+    *******************************************************************************/
+   public WorkflowTesterInput withWorkflowTestScenarioList(List<QRecord> workflowTestScenarioList)
+   {
+      this.workflowTestScenarioList = workflowTestScenarioList;
+      return (this);
+   }
+
+
+
+   /*******************************************************************************
+    * Getter for overrideWorkflowRevision
+    * @see #withOverrideWorkflowRevision(QRecord)
+    *******************************************************************************/
+   public QRecord getOverrideWorkflowRevision()
+   {
+      return (this.overrideWorkflowRevision);
+   }
+
+
+
+   /*******************************************************************************
+    * Setter for overrideWorkflowRevision
+    * @see #withOverrideWorkflowRevision(QRecord)
+    *******************************************************************************/
+   public void setOverrideWorkflowRevision(QRecord overrideWorkflowRevision)
+   {
+      this.overrideWorkflowRevision = overrideWorkflowRevision;
+   }
+
+
+
+   /*******************************************************************************
+    * Fluent setter for overrideWorkflowRevision
+    *
+    * @param overrideWorkflowRevision
+    * Allow a revision (populated with steps and links) to be passed in, to run instead
+    * of the current revision assigned to the workflow record.  Useful for use-cases
+    * where a user is editing and wants to run an unsaved set of steps & links.
+    * @return this
+    *******************************************************************************/
+   public WorkflowTesterInput withOverrideWorkflowRevision(QRecord overrideWorkflowRevision)
+   {
+      this.overrideWorkflowRevision = overrideWorkflowRevision;
       return (this);
    }
 

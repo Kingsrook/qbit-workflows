@@ -23,14 +23,17 @@ package com.kingsrook.qbits.workflows;
 
 
 import java.util.List;
+import java.util.Optional;
 import com.kingsrook.qbits.workflows.tracing.WorkflowRunLogTracer;
 import com.kingsrook.qbits.workflows.tracing.WorkflowTracerInterface;
 import com.kingsrook.qqq.api.model.metadata.ApiInstanceMetaData;
+import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.producers.MetaDataCustomizerInterface;
 import com.kingsrook.qqq.backend.core.model.metadata.qbits.QBitConfig;
+import com.kingsrook.qqq.backend.core.model.metadata.qbits.QBitMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.utils.ClassPathUtils;
 
@@ -61,6 +64,17 @@ public class WorkflowsQBitConfig implements QBitConfig
    public WorkflowsQBitConfig()
    {
       apiMiddlewareModuleAvailable = ClassPathUtils.isClassAvailable(ApiInstanceMetaData.class.getName());
+   }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   public static boolean isApiModuleAvailableAndDoesQBitIncludeApiVersions()
+   {
+      Optional<QBitMetaData> optionalQBitConfig = QContext.getQInstance().getQBits().values().stream().filter(qb -> qb.getConfig() instanceof WorkflowsQBitConfig).findFirst();
+      return (WorkflowsQBitConfig.getApiMiddlewareModuleAvailable() && optionalQBitConfig.isPresent() && ((WorkflowsQBitConfig) (optionalQBitConfig.get().getConfig())).getIncludeApiVersions());
    }
 
 

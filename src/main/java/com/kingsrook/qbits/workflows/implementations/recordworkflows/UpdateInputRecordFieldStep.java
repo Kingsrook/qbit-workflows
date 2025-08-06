@@ -23,6 +23,7 @@ package com.kingsrook.qbits.workflows.implementations.recordworkflows;
 
 
 import java.io.Serializable;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,21 +43,16 @@ import com.kingsrook.qqq.api.actions.QRecordApiAdapter;
 import com.kingsrook.qqq.api.model.actions.GetTableApiFieldsInput;
 import com.kingsrook.qqq.api.model.actions.GetTableApiFieldsOutput;
 import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
-import com.kingsrook.qqq.backend.core.actions.tables.UpdateAction;
 import com.kingsrook.qqq.backend.core.actions.values.QValueFormatter;
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
-import com.kingsrook.qqq.backend.core.model.actions.tables.update.UpdateInput;
-import com.kingsrook.qqq.backend.core.model.actions.tables.update.UpdateOutput;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.FieldAndJoinTable;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
-import com.kingsrook.qqq.backend.core.model.metadata.security.RecordSecurityLock;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
-import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
 import com.kingsrook.qqq.backend.core.utils.ValueUtils;
 import com.kingsrook.qqq.frontend.materialdashboard.model.metadata.MaterialDashboardFieldMetaData;
@@ -224,16 +220,29 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
     **
     ***************************************************************************/
    @Override
-   public WorkflowStepOutput execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException
+   public WorkflowStepOutput execute(WorkflowStep step, Map<String, Serializable> inputValues, WorkflowExecutionContext workflowExecutionContext) throws QException
    {
+      RecordWorkflowContext context = (RecordWorkflowContext) workflowExecutionContext;
+
+      QRecord record = context.record.get();
+
+      String fieldName = ValueUtils.getValueAsString(inputValues.get("fieldName"));
+      String value     = ValueUtils.getValueAsString(inputValues.get("value"));
+
       if(WorkflowStepUtils.useApi(context.getWorkflowRevision()))
       {
-         return executeViaApi(inputValues, context);
+         String actualFieldName = getActualFieldNameThroughApi(fieldName, value, context);
+         record.setValue(actualFieldName, value);
       }
       else
       {
-         return executeWithoutApi(inputValues, context);
+         record.setValue(fieldName, value);
       }
+
+      context.doesRecordNeedUpdated.set(true);
+
+      String stepSummary = getStepSummary(context.getWorkflow().getId(), fieldName, context.getWorkflowRevision().getApiName(), context.getWorkflowRevision().getApiVersion(), value, true);
+      return new WorkflowStepOutput(value, stepSummary);
    }
 
 
@@ -241,13 +250,10 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
    /***************************************************************************
     **
     ***************************************************************************/
-   private WorkflowStepOutput executeViaApi(Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException
+   private String getActualFieldNameThroughApi(String fieldName, String value, WorkflowExecutionContext context) throws QException
    {
       Workflow         workflow         = context.getWorkflow();
       WorkflowRevision workflowRevision = context.getWorkflowRevision();
-
-      String fieldName = ValueUtils.getValueAsString(inputValues.get("fieldName"));
-      String value     = ValueUtils.getValueAsString(inputValues.get("value"));
 
       if(fieldName.contains("."))
       {
@@ -261,91 +267,13 @@ public class UpdateInputRecordFieldStep extends WorkflowStepType implements Work
       apiRecordToUpdate.put(fieldName, value);
       QRecord recordToUpdate = QRecordApiAdapter.apiJsonObjectToQRecord(apiRecordToUpdate, workflow.getTableName(), workflowRevision.getApiName(), workflowRevision.getApiVersion(), false);
 
-      QRecord originalRecord = RecordWorkflowUtils.getRecordFromContext(context);
-      copyIdAndSecurityFieldsIntoRecordToUpdate(originalRecord, recordToUpdate);
-
-      return executeCommonEndingWithOrWithoutApi(context, originalRecord, recordToUpdate, fieldName, value);
-   }
-
-
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private WorkflowStepOutput executeWithoutApi(Map<String, Serializable> inputValues, WorkflowExecutionContext context) throws QException
-   {
-      QRecord originalRecord = RecordWorkflowUtils.getRecordFromContext(context);
-
-      ////////////////////////////////////////////////////////////////
-      // copy values from the source record into a record-to-update //
-      ////////////////////////////////////////////////////////////////
-      QRecord recordToUpdate = new QRecord();
-      copyIdAndSecurityFieldsIntoRecordToUpdate(originalRecord, recordToUpdate);
-
-      ///////////////////////////////////////////////
-      // set the new value in the record-to-update //
-      ///////////////////////////////////////////////
-      String fieldName = ValueUtils.getValueAsString(inputValues.get("fieldName"));
-      String value     = ValueUtils.getValueAsString(inputValues.get("value"));
-
-      if(fieldName.contains("."))
+      Iterator<String> iterator = recordToUpdate.getValues().keySet().iterator();
+      if(iterator.hasNext())
       {
-         /////////////////////////////////////////////////////////////////
-         // field names from the PVS are always qualified by table name //
-         /////////////////////////////////////////////////////////////////
-         fieldName = fieldName.substring(fieldName.indexOf(".") + 1);
+         return (iterator.next());
       }
 
-      recordToUpdate.setValue(fieldName, value);
-
-      return executeCommonEndingWithOrWithoutApi(context, originalRecord, recordToUpdate, fieldName, value);
-   }
-
-
-
-   /***************************************************************************
-    **
-    ***************************************************************************/
-   private WorkflowStepOutput executeCommonEndingWithOrWithoutApi(WorkflowExecutionContext context, QRecord originalRecord, QRecord recordToUpdate, String fieldName, String value) throws QException
-   {
-      String         tableName = context.getWorkflow().getTableName();
-      QTableMetaData table     = QContext.getQInstance().getTable(tableName);
-
-      UpdateOutput updateOutput = new UpdateAction().execute(new UpdateInput(tableName)
-         .withTransaction(context.getTransaction())
-         .withRecord(recordToUpdate));
-
-      QRecord outputRecord = updateOutput.getRecords().get(0);
-      if(CollectionUtils.nullSafeHasContents(outputRecord.getErrors()))
-      {
-         throw (new QException("Error updating record: " + outputRecord.getErrorsAsString()));
-      }
-      else
-      {
-         ///////////////////////////////////////
-         // refresh the object in the context //
-         ///////////////////////////////////////
-         QRecord updatedRecord = GetAction.execute(tableName, originalRecord.getValue(table.getPrimaryKeyField()));
-         RecordWorkflowUtils.updateRecordInContext(context, updatedRecord);
-
-         String stepSummary = getStepSummary(context.getWorkflow().getId(), fieldName, context.getWorkflowRevision().getApiName(), context.getWorkflowRevision().getApiVersion(), value, true);
-         return new WorkflowStepOutput(value, stepSummary);
-      }
-   }
-
-
-
-   /***************************************************************************
-    *
-    ***************************************************************************/
-   private static void copyIdAndSecurityFieldsIntoRecordToUpdate(QRecord originalRecord, QRecord recordToUpdate)
-   {
-      recordToUpdate.setValue("id", originalRecord.getValueInteger("id"));
-      for(RecordSecurityLock recordSecurityLock : CollectionUtils.nonNullList(QContext.getQInstance().getTable(originalRecord.getTableName()).getRecordSecurityLocks()))
-      {
-         String securityFieldName = recordSecurityLock.getFieldName();
-         recordToUpdate.setValue(securityFieldName, originalRecord.getValue(securityFieldName));
-      }
+      throw (new QException("Couldn't find field %s in API: %s Version: %s".formatted(fieldName, workflowRevision.getApiName(), workflowRevision.getApiVersion())));
    }
 
 
