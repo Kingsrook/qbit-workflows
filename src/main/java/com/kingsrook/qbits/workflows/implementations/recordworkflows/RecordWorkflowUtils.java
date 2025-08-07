@@ -24,8 +24,14 @@ package com.kingsrook.qbits.workflows.implementations.recordworkflows;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import com.kingsrook.qbits.workflows.execution.WorkflowExecutionContext;
+import com.kingsrook.qbits.workflows.model.Workflow;
+import com.kingsrook.qbits.workflows.model.WorkflowRevision;
+import com.kingsrook.qqq.api.actions.GetTableApiFieldsAction;
+import com.kingsrook.qqq.api.utils.ApiQueryFilterUtils;
 import com.kingsrook.qqq.backend.core.actions.tables.CountAction;
 import com.kingsrook.qqq.backend.core.actions.tables.DeleteAction;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
@@ -36,6 +42,7 @@ import com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperat
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import com.kingsrook.qqq.backend.core.utils.QQueryFilterFormatter;
 
@@ -162,4 +169,23 @@ public class RecordWorkflowUtils
          return (deleteOutput.getDeletedRecordCount());
       }
    }
+
+
+
+   /***************************************************************************
+    *
+    ***************************************************************************/
+   public static void updateFilterForApi(WorkflowExecutionContext context, QQueryFilter inputFilter) throws QException
+   {
+      WorkflowRevision            workflowRevision   = context.getWorkflowRevision();
+      Workflow                    workflow           = context.getWorkflow();
+      Map<String, QFieldMetaData> tableApiFields     = GetTableApiFieldsAction.getTableApiFieldMap(new GetTableApiFieldsAction.ApiNameVersionAndTableName(workflowRevision.getApiName(), workflowRevision.getApiVersion(), workflow.getTableName()));
+      List<String>                badRequestMessages = new ArrayList<>();
+
+      CountInput countInput = new CountInput(context.getWorkflow().getTableName())
+         .withTransaction(context.getTransaction());
+
+      ApiQueryFilterUtils.manageCriteriaFields(inputFilter, tableApiFields, badRequestMessages, workflowRevision.getApiName(), workflowRevision.getApiVersion(), countInput);
+   }
+
 }

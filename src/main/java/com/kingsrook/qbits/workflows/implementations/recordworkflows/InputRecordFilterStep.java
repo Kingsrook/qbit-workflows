@@ -44,7 +44,6 @@ import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
-import com.kingsrook.qqq.backend.core.model.actions.tables.count.CountInput;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.CriteriaOption;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.actions.tables.query.QueryInput;
@@ -121,11 +120,9 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
          throw (new QException("Missing filter input in InputRecordFilterStep"));
       }
 
-      WorkflowRevision workflowRevision = context.getWorkflowRevision();
-
-      if(WorkflowStepUtils.useApi(workflowRevision))
+      if(WorkflowStepUtils.useApi(context.getWorkflowRevision()))
       {
-         updateFilterForApi(context, filter);
+         RecordWorkflowUtils.updateFilterForApi(context, filter);
       }
 
       ///////////////////////////////////////////////////////////////////////////////
@@ -227,24 +224,6 @@ public class InputRecordFilterStep extends WorkflowStepType implements WorkflowS
       }
 
       return new WorkflowStepOutput(false);
-   }
-
-
-
-   /***************************************************************************
-    *
-    ***************************************************************************/
-   private void updateFilterForApi(WorkflowExecutionContext context, QQueryFilter inputFilter) throws QException
-   {
-      WorkflowRevision            workflowRevision   = context.getWorkflowRevision();
-      Workflow                    workflow           = context.getWorkflow();
-      Map<String, QFieldMetaData> tableApiFields     = GetTableApiFieldsAction.getTableApiFieldMap(new GetTableApiFieldsAction.ApiNameVersionAndTableName(workflowRevision.getApiName(), workflowRevision.getApiVersion(), workflow.getTableName()));
-      List<String>                badRequestMessages = new ArrayList<>();
-
-      CountInput countInput = new CountInput(context.getWorkflow().getTableName())
-         .withTransaction(context.getTransaction());
-
-      ApiQueryFilterUtils.manageCriteriaFields(inputFilter, tableApiFields, badRequestMessages, workflowRevision.getApiName(), workflowRevision.getApiVersion(), countInput);
    }
 
 
