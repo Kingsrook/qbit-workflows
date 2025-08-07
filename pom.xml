@@ -39,7 +39,7 @@
          <dependency>
             <groupId>com.kingsrook.qqq</groupId>
             <artifactId>qqq-bom-pom</artifactId>
-            <version>0.26.0-integration-20250719-154313</version>
+            <version>0.26.0-integration-20250807-141336</version>
             <type>pom</type>
             <scope>import</scope>
          </dependency>
