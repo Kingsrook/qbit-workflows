@@ -114,8 +114,7 @@ public class WorkflowTestAssertion extends QRecordEntity implements Serializable
             .withSupplementalMetaData(new MaterialDashboardFieldMetaData()
                .withFormAdjusterIdentifier("WorkflowTestAssertion.workflowTestScenarioId")
                .withFieldsToDisableWhileRunningAdjusters(Set.of("variableName", "expectedValue"))
-               .withOnChangeFormAdjuster(scenarioIdFormAdjuster)
-               .withOnLoadFormAdjuster(scenarioIdFormAdjuster));
+               .withOnChangeFormAdjuster(scenarioIdFormAdjuster));
 
          ////////////////////////////////////////////////////////////////////
          // when variable name changes, need to reset expected value field //
