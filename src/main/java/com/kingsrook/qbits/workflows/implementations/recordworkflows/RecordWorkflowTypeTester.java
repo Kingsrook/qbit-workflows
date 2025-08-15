@@ -24,6 +24,7 @@ package com.kingsrook.qbits.workflows.implementations.recordworkflows;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +51,7 @@ import com.kingsrook.qqq.backend.core.model.data.QRecord;
 import com.kingsrook.qqq.backend.core.model.data.QRecordWithJoinedRecords;
 import com.kingsrook.qqq.backend.core.model.metadata.fields.FieldAndJoinTable;
 import com.kingsrook.qqq.backend.core.model.metadata.tables.Association;
+import com.kingsrook.qqq.backend.core.model.metadata.tables.QTableMetaData;
 import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
@@ -157,14 +159,30 @@ public class RecordWorkflowTypeTester implements WorkflowTypeTesterInterface
    @Override
    public Serializable getValueForTestAssertion(WorkflowOutput workflowOutput, QRecord assertion) throws QException
    {
-      QRecord record = (QRecord) workflowOutput.getContext().getValues().get("record");
+      RecordWorkflowContext context = (RecordWorkflowContext) workflowOutput.getContext();
+      QRecord               record  = context.record.get();
 
       String            variableName      = assertion.getValueString("variableName");
       String            tableName         = workflowOutput.getContext().getWorkflow().getTableName();
-      FieldAndJoinTable fieldAndJoinTable = FieldAndJoinTable.get(QContext.getQInstance().getTable(tableName), variableName);
+      QTableMetaData    table             = QContext.getQInstance().getTable(tableName);
+      FieldAndJoinTable fieldAndJoinTable = FieldAndJoinTable.get(table, variableName);
       if(fieldAndJoinTable.joinTable().getName().equals(tableName))
       {
          return (record.getValueString(fieldAndJoinTable.field().getName()));
+      }
+      else
+      {
+         ////////////////////////////////////////////////////////////////////////////////////////
+         // if the field is from a different table, get list of values from associated records //
+         ////////////////////////////////////////////////////////////////////////////////////////
+         for(Association association : CollectionUtils.nonNullList(table.getAssociations()))
+         {
+            if(association.getAssociatedTableName().equals(fieldAndJoinTable.joinTable().getName()))
+            {
+               List<QRecord> associatedRecords = CollectionUtils.nonNullMap(record.getAssociatedRecords()).get(association.getName());
+               return (new ArrayList<>(associatedRecords.stream().map(li -> li.getValueString(fieldAndJoinTable.field().getName())).toList()));
+            }
+         }
       }
 
       return (record.getValueString(assertion.getValueString("variableName")));
