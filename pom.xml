@@ -90,25 +90,12 @@
    <repositories>
       <repository>
          <id>sonatype-snapshots</id>
-         <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
-         <releases>
-           <enabled>false</enabled>
-         </releases>
-         <snapshots>
-           <enabled>true</enabled>
-           <updatePolicy>always</updatePolicy>
-         </snapshots>
+         <url>https://central.sonatype.com/repository/maven-snapshots/</url>
       </repository>
       <repository>
          <id>github-qqq-maven-registry</id>
          <name>GitHub QQQ Maven Registry</name>
          <url>https://maven.pkg.github.com/Kingsrook/qqq-maven-registry</url>
-         <releases>
-           <enabled>true</enabled>
-         </releases>
-         <snapshots>
-           <enabled>true</enabled>
-         </snapshots>
       </repository>
    </repositories>
 
