@@ -227,6 +227,7 @@ public class WorkflowsRegistry implements QSupplementalInstanceMetaData, QHelpCo
                {
                   QFieldMetaData newField = new QFieldMetaData()
                      .withType(QFieldType.STRING)
+                     .withLabel("Step Description")
                      .withName("qswdDescription")
                      .withHelpContent(helpContent)
                      .withGridColumns(12);
