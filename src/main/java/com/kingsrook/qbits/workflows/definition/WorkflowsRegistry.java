@@ -32,7 +32,10 @@ import com.kingsrook.qqq.backend.core.instances.QInstanceValidator;
 import com.kingsrook.qqq.backend.core.logging.QLogger;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.QSupplementalInstanceMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldMetaData;
+import com.kingsrook.qqq.backend.core.model.metadata.fields.QFieldType;
 import com.kingsrook.qqq.backend.core.model.metadata.help.QHelpContent;
+import com.kingsrook.qqq.backend.core.utils.collections.ListBuilder;
 import static com.kingsrook.qqq.backend.core.logging.LogUtils.logPair;
 
 
@@ -217,6 +220,31 @@ public class WorkflowsRegistry implements QSupplementalInstanceMetaData, QHelpCo
             else if("label".equals(nameValuePairs.get("slot")))
             {
                workflowStepType.setLabel(helpContent.getContent());
+            }
+            else if(nameValuePairs.containsKey("field"))
+            {
+               if("qswdDescription".equals(nameValuePairs.get("field")))
+               {
+                  QFieldMetaData newField = new QFieldMetaData()
+                     .withType(QFieldType.STRING)
+                     .withName("qswdDescription")
+                     .withHelpContent(helpContent)
+                     .withGridColumns(12);
+
+                  List<QFieldMetaData> existingFields = workflowStepType.getInputFields();
+                  existingFields.add(newField);
+                  workflowStepType.setInputFields(existingFields);
+               }
+               else
+               {
+                  for(QFieldMetaData fieldMetaData : workflowStepType.getInputFields())
+                  {
+                     if(nameValuePairs.get("field").equals(fieldMetaData.getName()))
+                     {
+                        fieldMetaData.setHelpContents(ListBuilder.of(helpContent));
+                     }
+                  }
+               }
             }
          }
       }

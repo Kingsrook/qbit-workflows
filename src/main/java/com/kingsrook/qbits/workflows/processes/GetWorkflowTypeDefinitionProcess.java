@@ -36,11 +36,16 @@ import com.kingsrook.qbits.workflows.definition.WorkflowsRegistry;
 import com.kingsrook.qbits.workflows.model.Workflow;
 import com.kingsrook.qqq.backend.core.actions.processes.BackendStep;
 import com.kingsrook.qqq.backend.core.actions.tables.GetAction;
+import com.kingsrook.qqq.backend.core.actions.tables.QueryAction;
 import com.kingsrook.qqq.backend.core.context.QContext;
 import com.kingsrook.qqq.backend.core.exceptions.QException;
+import com.kingsrook.qqq.backend.core.instances.QInstanceHelpContentManager;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepInput;
 import com.kingsrook.qqq.backend.core.model.actions.processes.RunBackendStepOutput;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QFilterCriteria;
+import com.kingsrook.qqq.backend.core.model.actions.tables.query.QQueryFilter;
 import com.kingsrook.qqq.backend.core.model.data.QRecord;
+import com.kingsrook.qqq.backend.core.model.helpcontent.HelpContent;
 import com.kingsrook.qqq.backend.core.model.metadata.MetaDataProducerInterface;
 import com.kingsrook.qqq.backend.core.model.metadata.QInstance;
 import com.kingsrook.qqq.backend.core.model.metadata.code.QCodeReference;
@@ -55,6 +60,7 @@ import com.kingsrook.qqq.backend.core.model.metadata.processes.QProcessMetaData;
 import com.kingsrook.qqq.backend.core.utils.CollectionUtils;
 import com.kingsrook.qqq.backend.core.utils.JsonUtils;
 import com.kingsrook.qqq.backend.core.utils.StringUtils;
+import static com.kingsrook.qqq.backend.core.model.actions.tables.query.QCriteriaOperator.EQUALS;
 
 
 /*******************************************************************************
@@ -144,6 +150,16 @@ public class GetWorkflowTypeDefinitionProcess implements BackendStep, MetaDataPr
                   {
                      QFrontendFieldMetaData frontendFieldMetaData = new QFrontendFieldMetaData(inputField);
                      frontendFields.add(frontendFieldMetaData);
+                  }
+
+                  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                  // there is a 'virtual' field for step descriptions, so for helpHelp to work, manually load that content and add a front end field for it //
+                  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                  String        helpContentKey = "workflowStepType:" + workflowStepTypeName + ";field:qswdDescription";
+                  List<QRecord> helpRecords    = QueryAction.execute(HelpContent.TABLE_NAME, new QQueryFilter(new QFilterCriteria("key", EQUALS, helpContentKey)));
+                  for(QRecord record : helpRecords)
+                  {
+                     QInstanceHelpContentManager.processHelpContentRecord(QContext.getQInstance(), record);
                   }
                }
 
