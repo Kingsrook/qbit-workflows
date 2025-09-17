@@ -23,35 +23,50 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
    <modelVersion>4.0.0</modelVersion>
 
+
+   <parent>
+      <groupId>com.kingsrook</groupId>
+      <artifactId>qbit-build-parent</artifactId>
+      <version>1.1.0</version>
+   </parent>
+
    <groupId>com.kingsrook.qbits</groupId>
    <artifactId>qbit-workflows</artifactId>
-   <version>0.1.13-SNAPSHOT</version>
+   <version>${revision}</version>
+   <packaging>jar</packaging>
+
+   <name>QBit Workflows</name>
+   <description>Workflow management and process automation module for the QBit framework</description>
+   <url>https://github.com/Kingsrook/qbit-workflows</url>
+
+   <licenses>
+      <license>
+         <name>GNU Affero General Public License v3.0</name>
+         <url>https://www.gnu.org/licenses/agpl-3.0.html</url>
+         <distribution>repo</distribution>
+      </license>
+   </licenses>
+
+   <developers>
+      <developer>
+         <id>kingsrook</id>
+         <name>Kingsrook Team</name>
+         <email>contact@kingsrook.com</email>
+         <organization>Kingsrook, LLC</organization>
+         <organizationUrl>https://kingsrook.com</organizationUrl>
+      </developer>
+   </developers>
+
+   <scm>
+      <connection>scm:git:git://github.com/Kingsrook/qbit-workflows.git</connection>
+      <developerConnection>scm:git:ssh://github.com:Kingsrook/qbit-workflows.git</developerConnection>
+      <url>https://github.com/Kingsrook/qbit-workflows</url>
+      <tag>HEAD</tag>
+   </scm>
 
    <properties>
-      <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-      <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-      <maven.compiler.release>17</maven.compiler.release>
-      <maven.compiler.target>17</maven.compiler.target>
+      <revision>0.2.0-SNAPSHOT</revision>
    </properties>
-
-   <dependencyManagement>
-      <dependencies>
-         <dependency>
-            <groupId>com.kingsrook.qqq</groupId>
-            <artifactId>qqq-bom-pom</artifactId>
-            <version>0.27.9</version>
-            <type>pom</type>
-            <scope>import</scope>
-         </dependency>
-         <dependency>
-            <groupId>org.junit</groupId>
-            <artifactId>junit-bom</artifactId>
-            <version>5.10.0</version>
-            <type>pom</type>
-            <scope>import</scope>
-         </dependency>
-      </dependencies>
-   </dependencyManagement>
 
    <dependencies>
       <dependency>
@@ -71,7 +86,7 @@
       <dependency>
          <groupId>com.kingsrook.qqq</groupId>
          <artifactId>qqq-frontend-material-dashboard</artifactId>
-         <version>0.27.0-20250915.210441-5</version>
+         <version>0.27.0-SNAPSHOT</version>
       </dependency>
 
       <dependency>
@@ -86,25 +101,5 @@
          <scope>test</scope>
       </dependency>
    </dependencies>
-
-   <repositories>
-      <repository>
-         <id>sonatype-snapshots</id>
-         <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-      </repository>
-      <repository>
-         <id>github-qqq-maven-registry</id>
-         <name>GitHub QQQ Maven Registry</name>
-         <url>https://maven.pkg.github.com/Kingsrook/qqq-maven-registry</url>
-      </repository>
-   </repositories>
-
-   <distributionManagement>
-      <repository>
-         <id>github-qqq-maven-registry</id>
-         <name>GitHub QQQ Maven Registry</name>
-         <url>https://maven.pkg.github.com/Kingsrook/qqq-maven-registry</url>
-      </repository>
-   </distributionManagement>
 
 </project>
