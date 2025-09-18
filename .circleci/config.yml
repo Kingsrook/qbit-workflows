@@ -1,5 +1,6 @@
 version: 2.1
 
+<<<<<<< Updated upstream
 executors:
   java-executor:
     docker:
@@ -39,6 +40,10 @@ jobs:
           paths:
             - ~/.m2/repository
           key: v1-maven-cache-{{ checksum "pom.xml" }}
+=======
+orbs:
+  qqq-orb: kingsrook/qqq-orb@dev:snapshot
+>>>>>>> Stashed changes
 
 workflows:
   version: 2
